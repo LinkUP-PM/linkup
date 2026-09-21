@@ -1,0 +1,43 @@
+{
+  "strengths": [
+    {
+      "title": "Resultados mensuráveis",
+      "detail": "A experiência na LinkUP Labs cita redução de 40% no tempo de envio, o que torna o impacto verificável."
+    },
+    {
+      "title": "Stack alinhada ao produto mobile",
+      "detail": "React Native, Expo e TypeScript aparecem com contexto de entrega, não só como lista solta."
+    }
+  ],
+  "attentionPoints": [
+    {
+      "title": "Resumo ainda pode ser mais curto",
+      "detail": "O resumo funciona, mas cabe condensar em duas linhas focadas em resultado para o leitor de RH."
+    }
+  ],
+  "suggestions": [
+    {
+      "action": "Inclua uma métrica também na experiência de estágio",
+      "why": "Hoje só a vaga atual tem número; equilibrar as duas experiências reforça consistência.",
+      "example": "Documentei 12 componentes do design system usados por 3 squads."
+    }
+  ],
+  "dimensions": {
+    "structure": {
+      "summary": "Seções claras (resumo, experiência, formação, competências) com boa escaneabilidade."
+    },
+    "clarity": {
+      "summary": "Linguagem objetiva e com evidências; poucos trechos genéricos."
+    },
+    "skills": {
+      "identified": ["React Native", "TypeScript", "Expo", "Fastify", "PostgreSQL"],
+      "missing": ["testes automatizados"],
+      "summary": "Competências técnicas bem destacadas; falta evidência de testes."
+    },
+    "keywords": {
+      "present": ["React Native", "Expo", "TypeScript", "API", "produção"],
+      "missing": ["CI", "acessibilidade"],
+      "summary": "Keywords de mobile e backend presentes; CI e acessibilidade pouco visíveis."
+    }
+  }
+}

@@ -1,30 +1,48 @@
-import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import type { AnalysisDetail } from "@linkup/shared";
 import { getAnalysis } from "../../src/lib/api";
 
 export default function AnalysisScreen() {
+  const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [data, setData] = useState<AnalysisDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    setLoading(true);
+    setError(null);
+    try {
+      setData(await getAnalysis(id));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Não foi possível abrir esta análise.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    if (!id) return;
-    getAnalysis(id).then(setData).catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "Não foi possível abrir esta análise.");
-    });
-  }, [id]);
+    void load();
+  }, [load]);
 
   if (error) {
     return (
       <View style={styles.container}>
         <Text style={styles.error}>{error}</Text>
+        <Pressable style={styles.retry} onPress={load}>
+          <Text style={styles.retryText}>Tentar de novo</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push("/")}>
+          <Text style={styles.link}>Voltar ao envio</Text>
+        </Pressable>
       </View>
     );
   }
 
-  if (!data) {
+  if (!data || loading) {
     return (
       <View style={styles.container}>
         <Text>Carregando análise…</Text>
@@ -37,6 +55,12 @@ export default function AnalysisScreen() {
       <View style={styles.container}>
         <Text style={styles.title}>Não foi possível concluir</Text>
         <Text style={styles.error}>{data.errorMessage ?? "Tente enviar outro PDF."}</Text>
+        <Pressable style={styles.retry} onPress={() => router.push("/")}>
+          <Text style={styles.retryText}>Enviar outro PDF</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push("/historico")}>
+          <Text style={styles.link}>Ver histórico</Text>
+        </Pressable>
       </View>
     );
   }
@@ -68,6 +92,13 @@ export default function AnalysisScreen() {
           {item.example ? <Text style={styles.example}>Ex.: {item.example}</Text> : null}
         </View>
       ))}
+
+      <Pressable style={styles.secondary} onPress={() => router.push("/historico")}>
+        <Text style={styles.secondaryText}>Ver histórico</Text>
+      </Pressable>
+      <Pressable onPress={() => router.push("/")}>
+        <Text style={styles.link}>Analisar outro PDF</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -81,4 +112,23 @@ const styles = StyleSheet.create({
   cardBody: { color: "#4F463E", lineHeight: 20 },
   example: { color: "#6B6258", fontStyle: "italic" },
   error: { color: "#9B2C2C" },
+  retry: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#9B2C2C",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+  },
+  retryText: { color: "#9B2C2C", fontWeight: "700" },
+  link: { color: "#8A6A3B", fontWeight: "700", marginTop: 8 },
+  secondary: {
+    backgroundColor: "#1F1A16",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 16,
+  },
+  secondaryText: { color: "#fff", fontWeight: "700" },
 });

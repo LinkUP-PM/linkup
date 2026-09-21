@@ -2,7 +2,7 @@
   "name": "linkup",
   "private": true,
   "version": "0.1.0",
-  "description": "LinkUP ù Analisador Inteligente de Currùculos",
+  "description": "LinkUP - Analisador Inteligente de Curriculos",
   "workspaces": [
     "apps/*",
     "packages/*"

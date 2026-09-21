@@ -22,7 +22,7 @@ flowchart LR
 | --- | --- | --- |
 | Mobile | Upload, estados, resultado, histórico | Fluxo simples em celular |
 | API | Validar PDF, orquestrar extração e IA, persistir | Endpoints estáveis |
-| Extração | Converter PDF em texto analisável | Texto limpo ou erro claro |
+| Extração | Converter PDF em texto analisável (`unpdf`) | Texto limpo ou erro claro |
 | IA | Interpretar o currículo no contrato JSON | Três blocos + dimensões |
 | Persistência | Guardar análises e metadados do usuário | Histórico consultável |
 
