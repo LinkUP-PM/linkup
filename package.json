@@ -1,0 +1,27 @@
+{
+  "name": "linkup",
+  "private": true,
+  "version": "0.1.0",
+  "description": "LinkUP  Analisador Inteligente de Currculos",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w @linkup/api",
+    "dev:mobile": "npm run start -w @linkup/mobile",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run prisma:migrate -w @linkup/api",
+    "db:generate": "npm run prisma:generate -w @linkup/api",
+    "typecheck": "npm run typecheck -w @linkup/shared && npm run typecheck -w @linkup/api",
+    "lint": "npm run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@11.16.0"
+}

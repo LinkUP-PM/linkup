@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "LinkUP",
+    "slug": "linkup",
+    "scheme": "linkup",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-document-picker"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/LinkUP-PM/linkup/docs/contracts/analysis-result.schema.json",
+  "title": "AnalysisResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["strengths", "attentionPoints", "suggestions", "dimensions"],
+  "properties": {
+    "strengths": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/point" }
+    },
+    "attentionPoints": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/point" }
+    },
+    "suggestions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["action", "why"],
+        "properties": {
+          "action": { "type": "string", "minLength": 8 },
+          "why": { "type": "string", "minLength": 8 },
+          "example": { "type": "string" }
+        }
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["structure", "clarity", "skills", "keywords"],
+      "properties": {
+        "structure": { "$ref": "#/$defs/summary" },
+        "clarity": { "$ref": "#/$defs/summary" },
+        "skills": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["identified", "missing", "summary"],
+          "properties": {
+            "identified": { "type": "array", "items": { "type": "string" } },
+            "missing": { "type": "array", "items": { "type": "string" } },
+            "summary": { "type": "string" }
+          }
+        },
+        "keywords": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["present", "missing", "summary"],
+          "properties": {
+            "present": { "type": "array", "items": { "type": "string" } },
+            "missing": { "type": "array", "items": { "type": "string" } },
+            "summary": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "detail"],
+      "properties": {
+        "title": { "type": "string", "minLength": 3 },
+        "detail": { "type": "string", "minLength": 8 }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Arquitetura e contratos
+    url: https://github.com/LinkUP-PM/linkup/tree/main/docs
+    about: Leia os contratos antes de abrir Issue de implementação.

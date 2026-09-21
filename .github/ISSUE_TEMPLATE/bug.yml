@@ -1,0 +1,23 @@
+name: Bug
+description: Algo que já deveria funcionar e não funciona
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Comportamento esperado
+    validations:
+      required: true
+  - type: textarea
+    id: atual
+    attributes:
+      label: Comportamento atual
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Como reproduzir
+    validations:
+      required: true

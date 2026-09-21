@@ -1,0 +1,45 @@
+name: Tarefa
+description: Trabalho planejado de uma etapa do MVP
+title: "[Etapa X] "
+labels: ["feat"]
+body:
+  - type: dropdown
+    id: etapa
+    attributes:
+      label: Etapa do plano
+      options:
+        - etapa-0 Fundação
+        - etapa-1 Contratos
+        - etapa-2 Backend
+        - etapa-3 IA
+        - etapa-4 Mobile
+        - etapa-5 Integração
+        - etapa-6 Qualidade
+        - etapa-7 Entrega
+    validations:
+      required: true
+  - type: dropdown
+    id: trilha
+    attributes:
+      label: Trilha
+      options:
+        - backend
+        - mobile
+        - ia
+        - docs
+        - integração
+    validations:
+      required: true
+  - type: textarea
+    id: objetivo
+    attributes:
+      label: O que precisa ser feito
+    validations:
+      required: true
+  - type: textarea
+    id: pronto
+    attributes:
+      label: Pronto quando
+      description: Critério objetivo. Inclua o caminho de erro se a tarefa tiver UI ou API.
+    validations:
+      required: true
