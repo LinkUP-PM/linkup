@@ -25,5 +25,9 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@11.16.0"
+  "packageManager": "npm@11.16.0",
+  "dependencies": {
+    "react-dom": "18.3.1",
+    "react-native-web": "~0.19.13"
+  }
 }
