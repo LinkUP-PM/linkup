@@ -1,9 +1,18 @@
+import { Platform } from "react-native";
 import type { AnalysisDetail, AnalysisSummary, ApiErrorBody } from "@linkup/shared";
 import { API_URL } from "./config";
 import { getDeviceId } from "./device";
 
 /** Acima do AI_TIMEOUT_MS (45s) da API para OpenAI lento. */
 const FETCH_TIMEOUT_MS = 60_000;
+
+export type UploadFileInput = {
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+  /** Presente no Expo web (DocumentPickerAsset.file). */
+  file?: File;
+};
 
 async function headers(): Promise<Record<string, string>> {
   return { "X-Device-Id": await getDeviceId() };
@@ -57,13 +66,37 @@ async function request(path: string, init?: RequestInit): Promise<Response> {
   }
 }
 
-export async function createAnalysis(fileUri: string, fileName: string, mimeType: string): Promise<AnalysisDetail> {
-  const form = new FormData();
+async function appendPdfPart(form: FormData, input: UploadFileInput): Promise<void> {
+  const fileName = input.name || "curriculo.pdf";
+  const mimeType = input.mimeType || "application/pdf";
+
+  if (Platform.OS === "web") {
+    let blob: Blob;
+    if (typeof File !== "undefined" && input.file instanceof File) {
+      blob = input.file;
+    } else {
+      const blobResponse = await fetch(input.uri);
+      blob = await blobResponse.blob();
+    }
+    // RN FormData typings only accept 2 args; browsers still honor File name via the Blob.
+    const part =
+      typeof File !== "undefined"
+        ? new File([blob], fileName, { type: blob.type || mimeType, lastModified: Date.now() })
+        : blob;
+    form.append("file", part as unknown as Blob);
+    return;
+  }
+
   form.append("file", {
-    uri: fileUri,
+    uri: input.uri,
     name: fileName,
-    type: mimeType || "application/pdf",
+    type: mimeType,
   } as unknown as Blob);
+}
+
+export async function createAnalysis(input: UploadFileInput): Promise<AnalysisDetail> {
+  const form = new FormData();
+  await appendPdfPart(form, input);
 
   const response = await request("/analyses", {
     method: "POST",

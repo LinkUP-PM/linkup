@@ -42,11 +42,12 @@ export default function HomeScreen() {
     const file = picked.assets[0];
     setBusy(true);
     try {
-      const analysis = await createAnalysis(
-        file.uri,
-        file.name ?? "curriculo.pdf",
-        file.mimeType ?? "application/pdf",
-      );
+      const analysis = await createAnalysis({
+        uri: file.uri,
+        name: file.name ?? "curriculo.pdf",
+        mimeType: file.mimeType ?? "application/pdf",
+        file: file.file,
+      });
       router.push(`/analise/${analysis.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível analisar o arquivo.");
