@@ -68,7 +68,7 @@ export default function AnalysisScreen() {
         actionLabel="Tentar de novo"
         onAction={load}
         secondaryLabel="Voltar ao envio"
-        onSecondary={() => router.push("/")}
+        onSecondary={() => router.push("/(tabs)/index")}
       />
     );
   }
@@ -107,7 +107,7 @@ export default function AnalysisScreen() {
         title="Não foi possível concluir"
         body={data.errorMessage ?? "Tente enviar outro PDF."}
         actionLabel="Enviar outro PDF"
-        onAction={() => router.push("/")}
+        onAction={() => router.push("/(tabs)/index")}
         secondaryLabel="Ver histórico"
         onSecondary={() => router.push("/historico")}
       />
@@ -175,7 +175,7 @@ export default function AnalysisScreen() {
 
       <PrimaryButton
         label="Analisar outro PDF"
-        onPress={() => router.push("/")}
+        onPress={() => router.push("/(tabs)/index")}
         variant="secondary"
         style={styles.footerAction}
       />

@@ -12,11 +12,13 @@ Sem esse header: `400` com `{ "error": "DEVICE_ID_REQUIRED", "message": "..." }`
 
 ## `GET /health`
 
-`200`
+`200` quando API e banco respondem:
 
 ```json
 { "status": "ok" }
 ```
+
+`503` com `{ "error": "INTERNAL", "message": "..." }` se o banco estiver indisponível.
 
 ## `POST /analyses`
 
@@ -47,7 +49,6 @@ Erros:
 | 422 | `TEXT_TOO_SHORT` | Texto insuficiente |
 | 502 | `AI_UNAVAILABLE` | Modelo falhou ou timeout |
 | 502 | `AI_INVALID_RESPONSE` | JSON fora do contrato |
-| 503 | `INTERNAL` | Infra (ex.: banco indisponível no health) |
 
 Corpo de erro:
 
