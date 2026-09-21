@@ -8,7 +8,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { AnalysisSummary } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
 import { StatusPill } from "../../src/components/StatusPill";
@@ -57,7 +57,7 @@ export default function HistoryScreen() {
         title="Ainda não tem análise"
         body="O primeiro PDF já muda o jogo — envie um currículo e veja o que melhorar."
         actionLabel="Analisar um PDF"
-        onAction={() => router.push("/(tabs)/index")}
+        onAction={() => router.push("/(tabs)" as Href)}
       />
     );
   }

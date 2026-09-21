@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
+import { useLocalSearchParams, useNavigation, useRouter, type Href } from "expo-router";
 import type { AnalysisDetail } from "@linkup/shared";
 import { Card } from "../../src/components/Card";
 import { DimensionCard } from "../../src/components/DimensionCard";
@@ -68,7 +68,7 @@ export default function AnalysisScreen() {
         actionLabel="Tentar de novo"
         onAction={load}
         secondaryLabel="Voltar ao envio"
-        onSecondary={() => router.push("/(tabs)/index")}
+        onSecondary={() => router.push("/(tabs)" as Href)}
       />
     );
   }
@@ -107,7 +107,7 @@ export default function AnalysisScreen() {
         title="Não foi possível concluir"
         body={data.errorMessage ?? "Tente enviar outro PDF."}
         actionLabel="Enviar outro PDF"
-        onAction={() => router.push("/(tabs)/index")}
+        onAction={() => router.push("/(tabs)" as Href)}
         secondaryLabel="Ver histórico"
         onSecondary={() => router.push("/historico")}
       />
@@ -175,7 +175,7 @@ export default function AnalysisScreen() {
 
       <PrimaryButton
         label="Analisar outro PDF"
-        onPress={() => router.push("/(tabs)/index")}
+        onPress={() => router.push("/(tabs)" as Href)}
         variant="secondary"
         style={styles.footerAction}
       />
