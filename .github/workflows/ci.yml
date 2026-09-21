@@ -17,3 +17,49 @@ jobs:
       - run: npm install
       - run: npm run db:generate
       - run: npm run typecheck
+      - run: npm run test:fixtures
+
+  smoke-api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: linkup
+          POSTGRES_PASSWORD: linkup
+          POSTGRES_DB: linkup
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U linkup -d linkup"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://linkup:linkup@localhost:5432/linkup?schema=public
+      AI_PROVIDER: mock
+      PORT: 3333
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - name: Start API
+        run: |
+          cp apps/api/.env.example apps/api/.env
+          nohup npm run dev:api > /tmp/linkup-api.log 2>&1 &
+          for i in $(seq 1 45); do
+            if curl -sf http://127.0.0.1:3333/health >/dev/null; then
+              echo "API up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start"
+          cat /tmp/linkup-api.log || true
+          exit 1
+      - run: npm run smoke:api

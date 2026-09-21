@@ -12,12 +12,16 @@ Uma tarefa está pronta quando:
 - [ ] CI passou
 - [ ] PR revisado
 
-## MVP
+## MVP — status
 
-O MVP está pronto quando:
+| Critério | Status |
+| --- | --- |
+| Fluxo Upload → Extração → Análise → Feedback → Histórico na API (mock) | Feito — `smoke:api` |
+| Feedback em três blocos + histórico por device | Feito |
+| PDF inválido / texto curto com mensagem clara | Feito (API + fixtures) |
+| PDF grande / escaneado | Grande: receita no runbook; escaneado: erro `TEXT_NOT_EXTRACTABLE` |
+| Fluxo no **celular físico** (Expo Go + LAN) | Pendente — checklist em `docs/runbook.md` |
+| Feedback com OpenAI real | Pendente — precisa de `OPENAI_API_KEY` |
+| Demo explicando escolhas e limitações | Roteiro em `docs/demo.md` — execução ao vivo pendente |
 
-- [ ] Fluxo Upload → Extração → Análise → Feedback → Histórico funciona no celular
-- [ ] PDF inválido, grande demais, escaneado, texto curto e IA fora do ar têm mensagem clara
-- [ ] Feedback vem em pontos fortes, pontos de atenção e sugestões
-- [ ] Histórico lista e reabre análises anteriores
-- [ ] A equipe consegue demonstrar o produto explicando escolhas e limitações
+O MVP acadêmico está **pronto para demo com mock** assim que o checklist Etapa 5 no celular for validado uma vez.

@@ -1,8 +1,20 @@
 import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
-import type { AnalysisSummary } from "@linkup/shared";
-import { listAnalyses } from "../../src/lib/api";
+import type { AnalysisStatus, AnalysisSummary } from "@linkup/shared";
+import { listAnalyses } from "../src/lib/api";
+
+const STATUS_LABEL: Record<AnalysisStatus, string> = {
+  PENDING: "Pendente",
+  EXTRACTING: "Extraindo",
+  ANALYZING: "Analisando",
+  COMPLETED: "Concluída",
+  FAILED: "Falhou",
+};
+
+function statusLabel(status: AnalysisStatus): string {
+  return STATUS_LABEL[status] ?? status;
+}
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -62,7 +74,7 @@ export default function HistoryScreen() {
         >
           <Text style={styles.cardTitle}>{item.fileName}</Text>
           <Text style={styles.meta}>
-            {item.status} · {new Date(item.createdAt).toLocaleString("pt-BR")}
+            {statusLabel(item.status)} · {new Date(item.createdAt).toLocaleString("pt-BR")}
           </Text>
         </Pressable>
       ))}
