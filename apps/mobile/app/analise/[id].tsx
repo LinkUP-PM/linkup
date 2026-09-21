@@ -3,10 +3,14 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import type { AnalysisDetail } from "@linkup/shared";
 import { Card } from "../../src/components/Card";
+import { DimensionCard } from "../../src/components/DimensionCard";
+import { EmptyState } from "../../src/components/EmptyState";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { SectionHeader } from "../../src/components/SectionHeader";
 import { getAnalysis } from "../../src/lib/api";
 import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
+
+const IN_PROGRESS = new Set(["PENDING", "EXTRACTING", "ANALYZING"]);
 
 export default function AnalysisScreen() {
   const router = useRouter();
@@ -41,11 +45,14 @@ export default function AnalysisScreen() {
 
   if (error) {
     return (
-      <View style={styles.centered}>
-        <Text style={styles.error}>{error}</Text>
-        <PrimaryButton label="Tentar de novo" onPress={load} style={styles.action} />
-        <PrimaryButton label="Voltar ao envio" onPress={() => router.push("/index")} variant="ghost" />
-      </View>
+      <EmptyState
+        title="Não foi possível abrir"
+        body={error}
+        actionLabel="Tentar de novo"
+        onAction={load}
+        secondaryLabel="Voltar ao envio"
+        onSecondary={() => router.push("/index")}
+      />
     );
   }
 
@@ -58,18 +65,30 @@ export default function AnalysisScreen() {
     );
   }
 
-  if (data.status === "FAILED" || !data.result) {
+  if (IN_PROGRESS.has(data.status) && !data.result) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.failTitle}>Não foi possível concluir</Text>
-        <Text style={styles.error}>{data.errorMessage ?? "Tente enviar outro PDF."}</Text>
-        <PrimaryButton label="Enviar outro PDF" onPress={() => router.push("/index")} style={styles.action} />
-        <PrimaryButton
-          label="Ver histórico"
-          onPress={() => router.push("/historico")}
-          variant="ghost"
-        />
+        <ActivityIndicator color={colors.accent} size="large" />
+        <Text style={styles.inProgressTitle}>Ainda analisando</Text>
+        <Text style={styles.loadingText}>
+          Extração e IA ainda estão rodando. Atualize em alguns segundos.
+        </Text>
+        <PrimaryButton label="Atualizar" onPress={load} style={styles.action} />
+        <PrimaryButton label="Ver histórico" onPress={() => router.push("/historico")} variant="ghost" />
       </View>
+    );
+  }
+
+  if (data.status === "FAILED" || !data.result) {
+    return (
+      <EmptyState
+        title="Não foi possível concluir"
+        body={data.errorMessage ?? "Tente enviar outro PDF."}
+        actionLabel="Enviar outro PDF"
+        onAction={() => router.push("/index")}
+        secondaryLabel="Ver histórico"
+        onSecondary={() => router.push("/historico")}
+      />
     );
   }
 
@@ -111,6 +130,26 @@ export default function AnalysisScreen() {
           </View>
         </Card>
       ))}
+
+      <SectionHeader title="Leitura por dimensão" tone="neutral" />
+      <DimensionCard title="Estrutura" summary={result.dimensions.structure.summary} />
+      <DimensionCard title="Clareza" summary={result.dimensions.clarity.summary} />
+      <DimensionCard
+        title="Competências"
+        summary={result.dimensions.skills.summary}
+        present={result.dimensions.skills.identified}
+        missing={result.dimensions.skills.missing}
+        presentLabel="Identificadas"
+        missingLabel="Em falta"
+      />
+      <DimensionCard
+        title="Palavras-chave"
+        summary={result.dimensions.keywords.summary}
+        present={result.dimensions.keywords.present}
+        missing={result.dimensions.keywords.missing}
+        presentLabel="Presentes"
+        missingLabel="Pouco visíveis"
+      />
 
       <PrimaryButton
         label="Analisar outro PDF"
@@ -186,20 +225,17 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
   },
-  error: {
-    fontFamily: fonts.body,
-    color: colors.error,
-    lineHeight: 22,
-  },
-  failTitle: {
+  inProgressTitle: {
     fontFamily: fonts.display,
     fontSize: 24,
     color: colors.ink,
+    textAlign: "center",
   },
   loadingText: {
     fontFamily: fonts.body,
     color: colors.muted,
     textAlign: "center",
+    lineHeight: 22,
   },
   action: {
     marginTop: spacing.sm,

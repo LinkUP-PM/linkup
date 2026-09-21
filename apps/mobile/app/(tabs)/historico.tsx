@@ -1,5 +1,13 @@
 import { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import type { AnalysisSummary } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
@@ -34,7 +42,16 @@ export default function HistoryScreen() {
     }, [load]),
   );
 
-  if (hasLoaded && !loading && items.length === 0 && !error) {
+  if (!hasLoaded) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.accent} />
+        <Text style={styles.loadingText}>Carregando histórico…</Text>
+      </View>
+    );
+  }
+
+  if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
         title="Ainda não tem análise"
@@ -85,6 +102,17 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     gap: spacing.md,
     flexGrow: 1,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: spacing.md,
+    padding: spacing.xl,
+  },
+  loadingText: {
+    fontFamily: fonts.body,
+    color: colors.muted,
   },
   subtitle: {
     fontFamily: fonts.body,

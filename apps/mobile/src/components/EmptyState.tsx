@@ -7,15 +7,27 @@ type Props = {
   body: string;
   actionLabel?: string;
   onAction?: () => void;
+  secondaryLabel?: string;
+  onSecondary?: () => void;
 };
 
-export function EmptyState({ title, body, actionLabel, onAction }: Props) {
+export function EmptyState({
+  title,
+  body,
+  actionLabel,
+  onAction,
+  secondaryLabel,
+  onSecondary,
+}: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.body}>{body}</Text>
       {actionLabel && onAction ? (
         <PrimaryButton label={actionLabel} onPress={onAction} style={styles.button} />
+      ) : null}
+      {secondaryLabel && onSecondary ? (
+        <PrimaryButton label={secondaryLabel} onPress={onSecondary} variant="ghost" />
       ) : null}
     </View>
   );
