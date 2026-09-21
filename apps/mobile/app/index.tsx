@@ -45,11 +45,19 @@ export default function HomeScreen() {
         {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Enviar currículo em PDF</Text>}
       </Pressable>
 
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.error}>{error}</Text>
+          <Pressable style={styles.retry} onPress={pickAndSend} disabled={busy}>
+            <Text style={styles.retryText}>Tentar de novo</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <Pressable onPress={() => router.push("/historico")}>
         <Text style={styles.link}>Ver histórico</Text>
       </Pressable>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
       {busy ? <Text style={styles.hint}>Enviando e analisando…</Text> : null}
     </View>
   );
@@ -69,6 +77,16 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   link: { color: "#8A6A3B", fontWeight: "600", textAlign: "center", marginTop: 8 },
+  errorBox: { gap: 8 },
   error: { color: "#9B2C2C", lineHeight: 20 },
+  retry: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#9B2C2C",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  retryText: { color: "#9B2C2C", fontWeight: "700" },
   hint: { color: "#4F463E" },
 });

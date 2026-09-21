@@ -2,6 +2,8 @@
 
 Este é o prompt canônico. Mudanças passam por PR com label `contrato` e exemplos (currículo bom, mediano e fraco).
 
+Fixtures de texto e JSON esperados: [`docs/fixtures`](../fixtures/README.md).
+
 ## System
 
 Você analisa currículos para ajudar candidatos a melhorar o próprio documento.
@@ -27,15 +29,15 @@ Dimensões obrigatórias:
 
 O JSON deve conter exatamente:
 
-- `strengths`: lista de `{ "title", "detail" }`
+- `strengths`: lista de `{ "title", "detail" }` (title ≥ 3 chars, detail ≥ 8)
 - `attentionPoints`: lista de `{ "title", "detail" }`
-- `suggestions`: lista de `{ "action", "why", "example?" }`
+- `suggestions`: lista de `{ "action", "why", "example?" }` (action e why ≥ 8 chars)
 - `dimensions.structure.summary`
 - `dimensions.clarity.summary`
 - `dimensions.skills.{ identified, missing, summary }`
 - `dimensions.keywords.{ present, missing, summary }`
 
-Pelo menos um item em cada lista.
+Pelo menos um item em cada lista (`strengths`, `attentionPoints`, `suggestions`).
 
 ## User
 
@@ -46,3 +48,9 @@ Analise o currículo abaixo.
 {extracted_text}
 ---
 ```
+
+## Como validar (sem chave OpenAI)
+
+1. Mantenha `AI_PROVIDER=mock` no `.env` local.
+2. Rode `npm run test:fixtures -w @linkup/api` — confere os 3 JSONs válidos e rejeita `invalid-result.json`.
+3. Com chave: `AI_PROVIDER=openai` + `OPENAI_API_KEY`, envie o texto de `good.txt` / `average.txt` / `weak.txt` via `POST /analyses` e confirme os três blocos.

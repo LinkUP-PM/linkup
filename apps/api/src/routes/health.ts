@@ -1,13 +1,17 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { prisma } from "../lib/prisma.js";
 
+const DEVICE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export async function requireUser(request: FastifyRequest) {
   const deviceId = request.headers["x-device-id"];
-  if (typeof deviceId !== "string" || deviceId.trim().length < 8) {
-    const error = new Error("Informe o header X-Device-Id.");
-    (error as Error & { statusCode?: number; code?: string }).statusCode = 400;
-    (error as Error & { statusCode?: number; code?: string }).code = "DEVICE_ID_REQUIRED";
-    throw error;
+  if (typeof deviceId !== "string" || !DEVICE_ID_RE.test(deviceId.trim())) {
+    throw httpError(
+      400,
+      "DEVICE_ID_REQUIRED",
+      "Informe o header X-Device-Id com um UUID válido.",
+    );
   }
 
   return prisma.user.upsert({

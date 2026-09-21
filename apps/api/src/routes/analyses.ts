@@ -26,6 +26,22 @@ function toDetail(row: {
   };
 }
 
+async function readPdfBuffer(file: { toBuffer: () => Promise<Buffer> }): Promise<Buffer> {
+  try {
+    return await file.toBuffer();
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "FST_REQ_FILE_TOO_LARGE") {
+      throw httpError(
+        400,
+        "FILE_TOO_LARGE",
+        `O PDF ultrapassa o limite de ${Math.round(config.maxPdfSizeBytes / (1024 * 1024))} MB.`,
+      );
+    }
+    throw err;
+  }
+}
+
 export async function analysesRoutes(app: FastifyInstance) {
   app.post("/analyses", async (request, reply) => {
     const user = await requireUser(request);
@@ -42,7 +58,7 @@ export async function analysesRoutes(app: FastifyInstance) {
       throw httpError(400, "INVALID_FILE", "Envie apenas arquivos no formato PDF.");
     }
 
-    const buffer = await file.toBuffer();
+    const buffer = await readPdfBuffer(file);
     if (buffer.byteLength > config.maxPdfSizeBytes) {
       throw httpError(
         400,

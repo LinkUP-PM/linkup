@@ -23,12 +23,15 @@ async function loadSystemPrompt(): Promise<string> {
   return raw.slice(start + marker.length, end).trim();
 }
 
-function mockResult(): AnalysisResult {
+function mockResult(text: string): AnalysisResult {
+  const preview = text.slice(0, 80).replace(/\s+/g, " ").trim();
   return {
     strengths: [
       {
-        title: "Há uma seção de experiências",
-        detail: "O documento já organiza vivências em blocos que o leitor consegue localizar.",
+        title: "Há conteúdo suficiente para analisar",
+        detail: preview
+          ? `O texto começa com trechos legíveis (“${preview}…”), o que permite feedback concreto.`
+          : "O documento já organiza vivências em blocos que o leitor consegue localizar.",
       },
     ],
     attentionPoints: [
@@ -61,29 +64,56 @@ function mockResult(): AnalysisResult {
   };
 }
 
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            httpError(
+              502,
+              "AI_UNAVAILABLE",
+              "A análise automática demorou demais. Tente novamente em alguns minutos.",
+            ),
+          );
+        }, ms);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export async function analyzeResume(text: string): Promise<{ result: AnalysisResult; modelUsed: string }> {
   if (config.aiProvider !== "openai" || !config.openaiApiKey) {
-    return { result: mockResult(), modelUsed: "mock" };
+    return { result: mockResult(text), modelUsed: "mock" };
   }
 
-  const openai = new OpenAI({ apiKey: config.openaiApiKey });
+  const openai = new OpenAI({ apiKey: config.openaiApiKey, timeout: config.aiTimeoutMs });
   const system = await loadSystemPrompt();
 
   let content: string | null = null;
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: system },
-        {
-          role: "user",
-          content: `Analise o currículo abaixo.\n\n---\n${text}\n---`,
-        },
-      ],
-    });
+    const completion = await withTimeout(
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          {
+            role: "user",
+            content: `Analise o currículo abaixo.\n\n---\n${text}\n---`,
+          },
+        ],
+      }),
+      config.aiTimeoutMs,
+    );
     content = completion.choices[0]?.message?.content ?? null;
-  } catch {
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "AI_UNAVAILABLE") throw err;
     throw httpError(
       502,
       "AI_UNAVAILABLE",
@@ -111,4 +141,15 @@ export async function analyzeResume(text: string): Promise<{ result: AnalysisRes
   }
 
   return { result: parsed, modelUsed: "gpt-4o-mini" };
+}
+
+/** Exposto para testes de contrato sem chamar a OpenAI. */
+export function validateAiPayload(value: unknown): asserts value is AnalysisResult {
+  if (!isAnalysisResult(value)) {
+    throw httpError(
+      502,
+      "AI_INVALID_RESPONSE",
+      "A análise voltou em um formato inesperado. Tente novamente.",
+    );
+  }
 }

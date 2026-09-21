@@ -1,0 +1,43 @@
+{
+  "strengths": [
+    {
+      "title": "Há formação e experiências listadas",
+      "detail": "O documento já separa objetivo, experiências, formação e habilidades, o que facilita a leitura inicial."
+    }
+  ],
+  "attentionPoints": [
+    {
+      "title": "Experiências genéricas",
+      "detail": "Frases como “ajudei a equipe” não mostram o que foi feito, com quem ou qual foi o resultado."
+    },
+    {
+      "title": "Poucas palavras-chave técnicas",
+      "detail": "Quase não aparecem tecnologias, ferramentas ou entregáveis concretos da área desejada."
+    }
+  ],
+  "suggestions": [
+    {
+      "action": "Reescreva cada experiência com verbo + entrega + contexto",
+      "why": "Isso transforma tarefas vagas em evidências que um recrutador consegue avaliar rápido.",
+      "example": "Desenvolvi protótipo de app em React Native para o projeto de extensão da faculdade."
+    }
+  ],
+  "dimensions": {
+    "structure": {
+      "summary": "Estrutura básica presente, mas os blocos de experiência estão rasos."
+    },
+    "clarity": {
+      "summary": "Texto compreensível, porém genérico e sem evidências."
+    },
+    "skills": {
+      "identified": ["proatividade", "trabalho em equipe", "comunicação"],
+      "missing": ["stack técnica", "resultados"],
+      "summary": "Só competências comportamentais aparecem; faltam skills técnicas."
+    },
+    "keywords": {
+      "present": ["tecnologia", "faculdade", "equipe"],
+      "missing": ["React", "API", "projetos com impacto"],
+      "summary": "Keywords de impacto e ferramentas estão pouco presentes."
+    }
+  }
+}

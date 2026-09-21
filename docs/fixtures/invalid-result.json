@@ -1,0 +1,11 @@
+{
+  "strengths": [],
+  "attentionPoints": [{ "title": "x", "detail": "curto" }],
+  "suggestions": [{ "action": "fazer", "why": "porque" }],
+  "dimensions": {
+    "structure": { "summary": "ok" },
+    "clarity": { "summary": "ok" },
+    "skills": { "identified": [], "missing": [], "summary": "ok" },
+    "keywords": { "present": [], "missing": [], "summary": "ok" }
+  }
+}

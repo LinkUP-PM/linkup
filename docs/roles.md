@@ -15,16 +15,19 @@ Tech Lead: **Pedro Amorim** (`@The-P-P`)
 
 A sexta cadeira no PDF original é a de **validação da experiência e do conteúdo do feedback**. Na prática isso fica com Inteligência + um par de Mobile, e o Tech Lead fecha a demo.
 
-Preencha os GitHub usernames quando o time estiver na org:
+## Time na organização
 
-| Nome | GitHub | Trilha |
-| --- | --- | --- |
-| Pedro Amorim | @The-P-P | Integração / Tech Lead |
-| | | Backend |
-| | | Backend |
-| | | Inteligência |
-| | | Mobile |
-| | | Mobile |
+Org: [LinkUP-PM](https://github.com/LinkUP-PM) · Times GitHub: `backend`, `mobile`, `ia`
+
+| Nome | GitHub | Trilha | Status |
+| --- | --- | --- | --- |
+| Pedro Amorim | @The-P-P | Integração / Tech Lead | Na org |
+| (a confirmar) | @jguilmartins-blip | a definir no kickoff | Na org — preencher trilha |
+| (a confirmar) | convite: heitorwagner119@gmail.com | a definir | Convite pendente |
+| (a confirmar) | convite: filipemonteiro.code@gmail.com | a definir | Convite pendente |
+| | | Backend / Mobile / IA | Falta convidar 2 pessoas |
+
+Quando alguém aceitar o convite: atualize esta tabela com **nome + @username + trilha**, adicione-o ao time GitHub correspondente e atualize `.github/CODEOWNERS` se a trilha tiver revisor dedicado.
 
 ## Quem aprova o quê
 

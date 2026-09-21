@@ -1,0 +1,43 @@
+{
+  "strengths": [
+    {
+      "title": "Há intenção clara de busca",
+      "detail": "O texto deixa explícito que a pessoa quer uma oportunidade, o que ainda é um ponto de partida."
+    }
+  ],
+  "attentionPoints": [
+    {
+      "title": "Conteúdo insuficiente",
+      "detail": "Faltam seções de experiência, formação, competências e qualquer evidência verificável."
+    },
+    {
+      "title": "Contato incompleto",
+      "detail": "Só há um telefone parcial; sem e-mail ou cidade fica difícil o retorno do recrutador."
+    }
+  ],
+  "suggestions": [
+    {
+      "action": "Monte seções mínimas: contato, formação, 2 experiências e 5 skills",
+      "why": "Sem essa base o leitor não consegue avaliar o perfil nem comparar com uma vaga.",
+      "example": "Formação: UNDB — Sistemas de Informação (previsão 2026)."
+    }
+  ],
+  "dimensions": {
+    "structure": {
+      "summary": "Não há estrutura de currículo reconhecível."
+    },
+    "clarity": {
+      "summary": "Linguagem informal e sem detalhes úteis para seleção."
+    },
+    "skills": {
+      "identified": [],
+      "missing": ["competências técnicas", "experiências", "formação"],
+      "summary": "Nenhuma skill concreta foi identificada no texto."
+    },
+    "keywords": {
+      "present": ["emprego", "faculdade", "computador"],
+      "missing": ["tecnologias", "projetos", "resultados"],
+      "summary": "Quase não há palavras-chave relevantes para vagas de tecnologia."
+    }
+  }
+}

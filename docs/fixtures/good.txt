@@ -1,0 +1,20 @@
+Maria Souza
+Desenvolvedora Mobile · São Luís, MA · maria.souza@email.com · (98) 99999-0000
+
+Resumo
+Desenvolvedora com 3 anos em React Native e TypeScript. Entrego apps em produção com foco em performance e UX.
+
+Experiência
+LinkUP Labs — Desenvolvedora Mobile (2023–atual)
+- Implementei o fluxo de upload e histórico do app LinkUP, reduzindo o tempo médio de envio de currículo em 40%.
+- Integrei API Fastify com Expo Router e estados de erro compreensíveis para o usuário.
+- Escrevi testes manuais de regressão para PDF inválido, escaneado e texto curto.
+
+Startup Norte — Estagiária Frontend (2022–2023)
+- Construí telas responsivas em React e documentei o design system interno.
+
+Formação
+UNDB — Sistemas de Informação (2021–2025)
+
+Competências
+React Native, TypeScript, Expo, Fastify, PostgreSQL, Git, Comunicação com produto

@@ -46,7 +46,14 @@ export default function HistoryScreen() {
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
     >
       <Text style={styles.title}>Histórico</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      {error ? (
+        <View style={styles.errorBox}>
+          <Text style={styles.error}>{error}</Text>
+          <Pressable style={styles.retry} onPress={load}>
+            <Text style={styles.retryText}>Tentar de novo</Text>
+          </Pressable>
+        </View>
+      ) : null}
       {items.map((item) => (
         <Pressable
           key={item.id}
@@ -71,5 +78,15 @@ const styles = StyleSheet.create({
   card: { backgroundColor: "#fff", borderRadius: 12, padding: 14, gap: 4 },
   cardTitle: { fontWeight: "700", color: "#1F1A16" },
   meta: { color: "#6B6258" },
+  errorBox: { gap: 8 },
   error: { color: "#9B2C2C" },
+  retry: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#9B2C2C",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  retryText: { color: "#9B2C2C", fontWeight: "700" },
 });
