@@ -60,6 +60,20 @@ async function main() {
   const analysisId = String(postOkBody.id);
   console.log("ok  POST sample-resume.pdf → COMPLETED");
 
+  const detailA = await fetch(`${baseUrl}/analyses/${analysisId}`, {
+    headers: { "X-Device-Id": deviceA },
+  });
+  const detailABody = await expectJson(detailA, "detail-a");
+  if (
+    detailA.status !== 200 ||
+    detailABody.id !== analysisId ||
+    detailABody.status !== "COMPLETED" ||
+    !detailABody.result
+  ) {
+    throw new Error(`GET detalhe esperado 200 COMPLETED: ${detailA.status} ${JSON.stringify(detailABody)}`);
+  }
+  console.log("ok  GET /analyses/:id");
+
   const shortPdf = await readFile(path.join(fixturesDir, "short-resume.pdf"));
   const formShort = new FormData();
   formShort.append(
@@ -78,6 +92,19 @@ async function main() {
   }
   console.log("ok  TEXT_TOO_SHORT");
 
+  const listAfterFail = await expectJson(
+    await fetch(`${baseUrl}/analyses`, { headers: { "X-Device-Id": deviceA } }),
+    "list-after-fail",
+  );
+  const itemsAfterFail = (listAfterFail.items as Array<{ status?: string; fileName?: string }>) ?? [];
+  const failedShort = itemsAfterFail.find(
+    (item) => item.fileName === "short-resume.pdf" && item.status === "FAILED",
+  );
+  if (!failedShort) {
+    throw new Error(`histórico deveria ter short-resume.pdf como FAILED: ${JSON.stringify(itemsAfterFail)}`);
+  }
+  console.log("ok  FAILED persistido no histórico");
+
   const notPdf = await readFile(path.join(fixturesDir, "not-a-pdf.txt"));
   const formBad = new FormData();
   formBad.append(
@@ -95,6 +122,29 @@ async function main() {
     throw new Error(`INVALID_FILE esperado: ${postBad.status} ${JSON.stringify(postBadBody)}`);
   }
   console.log("ok  INVALID_FILE");
+
+  // PDF mínimo + padding > 5 MB (não versionado)
+  const oversized = new Uint8Array(6 * 1024 * 1024);
+  oversized[0] = 0x25; // %
+  oversized[1] = 0x50; // P
+  oversized[2] = 0x44; // D
+  oversized[3] = 0x46; // F
+  const formBig = new FormData();
+  formBig.append(
+    "file",
+    new Blob([oversized], { type: "application/pdf" }),
+    "grande.pdf",
+  );
+  const postBig = await fetch(`${baseUrl}/analyses`, {
+    method: "POST",
+    headers: { "X-Device-Id": deviceA },
+    body: formBig,
+  });
+  const postBigBody = await expectJson(postBig, "post-big");
+  if (postBig.status !== 400 || postBigBody.error !== "FILE_TOO_LARGE") {
+    throw new Error(`FILE_TOO_LARGE esperado: ${postBig.status} ${JSON.stringify(postBigBody)}`);
+  }
+  console.log("ok  FILE_TOO_LARGE");
 
   const detailB = await fetch(`${baseUrl}/analyses/${analysisId}`, {
     headers: { "X-Device-Id": deviceB },

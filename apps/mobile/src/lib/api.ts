@@ -2,6 +2,9 @@ import type { AnalysisDetail, AnalysisSummary, ApiErrorBody } from "@linkup/shar
 import { API_URL } from "./config";
 import { getDeviceId } from "./device";
 
+/** Acima do AI_TIMEOUT_MS (45s) da API para OpenAI lento. */
+const FETCH_TIMEOUT_MS = 60_000;
+
 async function headers(): Promise<Record<string, string>> {
   return { "X-Device-Id": await getDeviceId() };
 }
@@ -16,6 +19,11 @@ async function parseError(response: Response): Promise<string> {
 }
 
 function networkErrorMessage(err: unknown): Error {
+  if (err instanceof Error && err.name === "AbortError") {
+    return new Error(
+      "A análise demorou demais. Verifique a conexão e tente novamente.",
+    );
+  }
   const raw = err instanceof Error ? err.message : String(err);
   const lower = raw.toLowerCase();
   if (
@@ -35,10 +43,17 @@ function networkErrorMessage(err: unknown): Error {
 }
 
 async function request(path: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(`${API_URL}${path}`, init);
+    return await fetch(`${API_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+    });
   } catch (err) {
     throw networkErrorMessage(err);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

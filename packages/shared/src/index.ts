@@ -59,7 +59,8 @@ export type ApiErrorCode =
   | "TEXT_TOO_SHORT"
   | "AI_UNAVAILABLE"
   | "AI_INVALID_RESPONSE"
-  | "NOT_FOUND";
+  | "NOT_FOUND"
+  | "INTERNAL";
 
 export type ApiErrorBody = {
   error: ApiErrorCode;

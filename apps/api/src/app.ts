@@ -14,6 +14,7 @@ const CONTRACT_CODES = new Set([
   "AI_UNAVAILABLE",
   "AI_INVALID_RESPONSE",
   "NOT_FOUND",
+  "INTERNAL",
 ]);
 
 export async function buildApp() {
@@ -40,7 +41,7 @@ export async function buildApp() {
     const safeCode = CONTRACT_CODES.has(code)
       ? code
       : statusCode >= 500
-        ? "AI_UNAVAILABLE"
+        ? "INTERNAL"
         : code;
 
     reply.code(statusCode).send({

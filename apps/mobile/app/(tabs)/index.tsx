@@ -23,10 +23,20 @@ export default function HomeScreen() {
 
   async function pickAndSend() {
     setError(null);
-    const picked = await DocumentPicker.getDocumentAsync({
-      type: "application/pdf",
-      copyToCacheDirectory: true,
-    });
+    let picked: Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
+    try {
+      picked = await DocumentPicker.getDocumentAsync({
+        type: "application/pdf",
+        copyToCacheDirectory: true,
+      });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível abrir o seletor de arquivos.",
+      );
+      return;
+    }
     if (picked.canceled || !picked.assets[0]) return;
 
     const file = picked.assets[0];

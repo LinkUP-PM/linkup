@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { config } from "../config.js";
 import { analyzeResume } from "../services/ai.js";
 import { assertExtractedText, extractPdfText } from "../services/pdf.js";
-import { httpError, requireUser } from "./health.js";
+import { httpError, requireUser } from "../lib/http.js";
 
 function toDetail(row: {
   id: string;
@@ -72,11 +72,16 @@ export async function analysesRoutes(app: FastifyInstance) {
         userId: user.id,
         fileName,
         fileSizeBytes: buffer.byteLength,
-        status: "EXTRACTING",
+        status: "PENDING",
       },
     });
 
     try {
+      await prisma.analysis.update({
+        where: { id: analysis.id },
+        data: { status: "EXTRACTING" },
+      });
+
       const text = await extractPdfText(buffer);
       assertExtractedText(text);
 
@@ -104,7 +109,7 @@ export async function analysesRoutes(app: FastifyInstance) {
         data: { status: "FAILED", errorMessage: message },
       });
       if (code) throw err;
-      throw httpError(502, "AI_UNAVAILABLE", message);
+      throw httpError(500, "INTERNAL", message);
     }
   });
 

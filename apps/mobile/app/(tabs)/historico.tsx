@@ -57,7 +57,7 @@ export default function HistoryScreen() {
         title="Ainda não tem análise"
         body="O primeiro PDF já muda o jogo — envie um currículo e veja o que melhorar."
         actionLabel="Analisar um PDF"
-        onAction={() => router.push("/index")}
+        onAction={() => router.push("/")}
       />
     );
   }

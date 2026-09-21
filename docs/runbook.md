@@ -28,7 +28,7 @@ Com a API no ar:
 npm run smoke:api -w @linkup/api
 ```
 
-Cobre: health, `DEVICE_ID_REQUIRED`, POST sucesso (`sample-resume.pdf`), `TEXT_TOO_SHORT`, `INVALID_FILE`, isolamento por device.
+Cobre: health, `DEVICE_ID_REQUIRED`, POST sucesso (`sample-resume.pdf`), `GET /analyses/:id`, `TEXT_TOO_SHORT` + `FAILED` no histórico, `INVALID_FILE`, `FILE_TOO_LARGE`, isolamento por device.
 
 ### Smoke manual rápido
 
