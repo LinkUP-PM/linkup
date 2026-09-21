@@ -15,6 +15,33 @@ async function parseError(response: Response): Promise<string> {
   }
 }
 
+function networkErrorMessage(err: unknown): Error {
+  const raw = err instanceof Error ? err.message : String(err);
+  const lower = raw.toLowerCase();
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("network request failed") ||
+    lower.includes("networkerror") ||
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("econnrefused") ||
+    lower.includes("enotfound")
+  ) {
+    return new Error(
+      "Não foi possível falar com a API. Confira se o servidor está ligado, se o celular está na mesma Wi‑Fi e se EXPO_PUBLIC_API_URL aponta para o IP certo.",
+    );
+  }
+  return err instanceof Error ? err : new Error(raw);
+}
+
+async function request(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(`${API_URL}${path}`, init);
+  } catch (err) {
+    throw networkErrorMessage(err);
+  }
+}
+
 export async function createAnalysis(fileUri: string, fileName: string, mimeType: string): Promise<AnalysisDetail> {
   const form = new FormData();
   form.append("file", {
@@ -23,7 +50,7 @@ export async function createAnalysis(fileUri: string, fileName: string, mimeType
     type: mimeType || "application/pdf",
   } as unknown as Blob);
 
-  const response = await fetch(`${API_URL}/analyses`, {
+  const response = await request("/analyses", {
     method: "POST",
     headers: await headers(),
     body: form,
@@ -37,7 +64,7 @@ export async function createAnalysis(fileUri: string, fileName: string, mimeType
 }
 
 export async function listAnalyses(): Promise<AnalysisSummary[]> {
-  const response = await fetch(`${API_URL}/analyses`, {
+  const response = await request("/analyses", {
     headers: await headers(),
   });
   if (!response.ok) {
@@ -48,7 +75,7 @@ export async function listAnalyses(): Promise<AnalysisSummary[]> {
 }
 
 export async function getAnalysis(id: string): Promise<AnalysisDetail> {
-  const response = await fetch(`${API_URL}/analyses/${id}`, {
+  const response = await request(`/analyses/${id}`, {
     headers: await headers(),
   });
   if (!response.ok) {

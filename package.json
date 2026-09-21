@@ -14,8 +14,10 @@
     "db:down": "docker compose down",
     "db:migrate": "npm run prisma:migrate -w @linkup/api",
     "db:generate": "npm run prisma:generate -w @linkup/api",
-    "typecheck": "npm run typecheck -w @linkup/shared && npm run typecheck -w @linkup/api",
-    "lint": "npm run typecheck"
+    "typecheck": "npm run typecheck -w @linkup/shared && npm run typecheck -w @linkup/api && npm run typecheck -w @linkup/mobile",
+    "lint": "npm run typecheck",
+    "test:fixtures": "npm run test:fixtures -w @linkup/api",
+    "smoke:api": "npm run smoke:api -w @linkup/api"
   },
   "devDependencies": {
     "typescript": "^5.9.2"
