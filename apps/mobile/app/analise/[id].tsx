@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
 import type { AnalysisDetail } from "@linkup/shared";
@@ -11,6 +11,7 @@ import { getAnalysis } from "../../src/lib/api";
 import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
 
 const IN_PROGRESS = new Set(["PENDING", "EXTRACTING", "ANALYZING"]);
+const POLL_MS = 2500;
 
 export default function AnalysisScreen() {
   const router = useRouter();
@@ -19,17 +20,25 @@ export default function AnalysisScreen() {
   const [data, setData] = useState<AnalysisDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedOnce = useRef(false);
 
   const load = useCallback(async () => {
     if (!id) return;
-    setLoading(true);
+    if (!hasLoadedOnce.current) {
+      setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     setError(null);
     try {
       setData(await getAnalysis(id));
+      hasLoadedOnce.current = true;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Não foi possível abrir esta análise.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [id]);
 
@@ -37,13 +46,21 @@ export default function AnalysisScreen() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (!data || !IN_PROGRESS.has(data.status) || data.result) return;
+    const timer = setInterval(() => {
+      void load();
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [data, load]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: data?.fileName ?? "Análise",
     });
   }, [navigation, data?.fileName]);
 
-  if (error) {
+  if (error && !data) {
     return (
       <EmptyState
         title="Não foi possível abrir"
@@ -51,12 +68,12 @@ export default function AnalysisScreen() {
         actionLabel="Tentar de novo"
         onAction={load}
         secondaryLabel="Voltar ao envio"
-        onSecondary={() => router.push("/index")}
+        onSecondary={() => router.push("/")}
       />
     );
   }
 
-  if (!data || loading) {
+  if (!data || (loading && !hasLoadedOnce.current)) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.accent} />
@@ -71,9 +88,14 @@ export default function AnalysisScreen() {
         <ActivityIndicator color={colors.accent} size="large" />
         <Text style={styles.inProgressTitle}>Ainda analisando</Text>
         <Text style={styles.loadingText}>
-          Extração e IA ainda estão rodando. Atualize em alguns segundos.
+          Extração e IA ainda estão rodando. Atualizamos automaticamente.
         </Text>
-        <PrimaryButton label="Atualizar" onPress={load} style={styles.action} />
+        <PrimaryButton
+          label={refreshing ? "Atualizando…" : "Atualizar agora"}
+          onPress={load}
+          disabled={refreshing}
+          style={styles.action}
+        />
         <PrimaryButton label="Ver histórico" onPress={() => router.push("/historico")} variant="ghost" />
       </View>
     );
@@ -85,7 +107,7 @@ export default function AnalysisScreen() {
         title="Não foi possível concluir"
         body={data.errorMessage ?? "Tente enviar outro PDF."}
         actionLabel="Enviar outro PDF"
-        onAction={() => router.push("/index")}
+        onAction={() => router.push("/")}
         secondaryLabel="Ver histórico"
         onSecondary={() => router.push("/historico")}
       />
@@ -153,7 +175,7 @@ export default function AnalysisScreen() {
 
       <PrimaryButton
         label="Analisar outro PDF"
-        onPress={() => router.push("/index")}
+        onPress={() => router.push("/")}
         variant="secondary"
         style={styles.footerAction}
       />
