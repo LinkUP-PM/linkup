@@ -9,16 +9,15 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
-import type { AnalysisSummary } from "@linkup/shared";
+import type { Job } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
-import { StatusPill } from "../../src/components/StatusPill";
-import { listAnalyses } from "../../src/lib/api";
+import { listJobs } from "../../src/lib/api";
 import { relativeTime } from "../../src/lib/relativeTime";
 import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
 
-export default function HistoryScreen() {
+export default function EmployerHomeScreen() {
   const router = useRouter();
-  const [items, setItems] = useState<AnalysisSummary[]>([]);
+  const [items, setItems] = useState<Job[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -26,10 +25,10 @@ export default function HistoryScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await listAnalyses());
+      setItems(await listJobs());
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível carregar o histórico.");
+      setError(err instanceof Error ? err.message : "Não foi possível carregar as vagas.");
     } finally {
       setLoading(false);
       setHasLoaded(true);
@@ -46,7 +45,7 @@ export default function HistoryScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={colors.accent} />
-        <Text style={styles.loadingText}>Carregando histórico…</Text>
+        <Text style={styles.loadingText}>Carregando vagas…</Text>
       </View>
     );
   }
@@ -54,10 +53,10 @@ export default function HistoryScreen() {
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
-        title="Ainda não tem análise"
-        body="O primeiro PDF já muda o jogo — envie um currículo e veja o que melhorar."
-        actionLabel="Analisar um PDF"
-        onAction={() => router.push("/(tabs)" as Href)}
+        title="Nenhuma vaga ainda"
+        body="Publique a primeira vaga. Os candidatos e o recrutador passam a vê-la."
+        actionLabel="Abrir nova vaga"
+        onAction={() => router.push("/(employer)/nova" as Href)}
       />
     );
   }
@@ -67,7 +66,7 @@ export default function HistoryScreen() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
-      <Text style={styles.subtitle}>Suas análises neste aparelho</Text>
+      <Text style={styles.subtitle}>Vagas deste aparelho</Text>
 
       {error ? (
         <View style={styles.errorBox}>
@@ -78,20 +77,14 @@ export default function HistoryScreen() {
         </View>
       ) : null}
 
-      {items.map((item) => (
-        <Pressable
-          key={item.id}
-          style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-          onPress={() => router.push(`/analise/${item.id}`)}
-        >
-          <View style={styles.cardHeader}>
-            <StatusPill status={item.status} />
-            <Text style={styles.time}>{relativeTime(item.createdAt)}</Text>
-          </View>
-          <Text style={styles.fileName} numberOfLines={1}>
-            {item.fileName}
+      {items.map((job) => (
+        <View key={job.id} style={styles.card}>
+          <Text style={styles.title}>{job.title}</Text>
+          <Text style={styles.lookingFor} numberOfLines={3}>
+            {job.lookingFor}
           </Text>
-        </Pressable>
+          <Text style={styles.time}>{relativeTime(job.createdAt)}</Text>
+        </View>
       ))}
     </ScrollView>
   );
@@ -128,25 +121,21 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  cardPressed: {
-    opacity: 0.9,
-    borderColor: colors.accent,
+  title: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 17,
+    color: colors.ink,
   },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
+  lookingFor: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.muted,
   },
   time: {
     fontFamily: fonts.body,
     fontSize: 13,
     color: colors.muted,
-  },
-  fileName: {
-    fontFamily: fonts.bodySemi,
-    fontSize: 16,
-    color: colors.ink,
   },
   errorBox: {
     gap: spacing.sm,

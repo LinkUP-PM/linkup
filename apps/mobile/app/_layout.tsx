@@ -40,7 +40,25 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="porta" options={{ headerShown: false }} />
+        <Stack.Screen name="(candidate)" options={{ headerShown: false }} />
+        <Stack.Screen name="(employer)" options={{ headerShown: false }} />
+        <Stack.Screen name="(recruiter)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="vaga/[id]"
+          options={{
+            title: "Vaga",
+            headerBackTitle: "Voltar",
+          }}
+        />
+        <Stack.Screen
+          name="candidatura/[id]"
+          options={{
+            title: "Candidatura",
+            headerBackTitle: "Voltar",
+          }}
+        />
         <Stack.Screen
           name="analise/[id]"
           options={{

@@ -169,6 +169,82 @@ async function main() {
   if (itemsB.length !== 0) throw new Error("lista B deveria estar vazia");
   console.log("ok  histórico isolado");
 
+  const employer = randomUUID();
+  const candidate = randomUUID();
+
+  const putEmployer = await fetch(`${baseUrl}/me/role`, {
+    method: "PUT",
+    headers: { "X-Device-Id": employer, "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "EMPLOYER" }),
+  });
+  const putEmployerBody = await expectJson(putEmployer, "put-employer");
+  if (putEmployer.status !== 200 || putEmployerBody.role !== "EMPLOYER") {
+    throw new Error(`PUT employer role: ${putEmployer.status} ${JSON.stringify(putEmployerBody)}`);
+  }
+  console.log("ok  PUT /me/role EMPLOYER");
+
+  const putAgain = await fetch(`${baseUrl}/me/role`, {
+    method: "PUT",
+    headers: { "X-Device-Id": employer, "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "CANDIDATE" }),
+  });
+  const putAgainBody = await expectJson(putAgain, "put-again");
+  if (putAgain.status !== 409 || putAgainBody.error !== "ROLE_ALREADY_SET") {
+    throw new Error(`ROLE_ALREADY_SET esperado: ${putAgain.status} ${JSON.stringify(putAgainBody)}`);
+  }
+  console.log("ok  ROLE_ALREADY_SET");
+
+  const createJob = await fetch(`${baseUrl}/jobs`, {
+    method: "POST",
+    headers: { "X-Device-Id": employer, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: "Desenvolvedor mobile",
+      description: "Time LinkUP construindo app em React Native.",
+      lookingFor: "TypeScript, entregas em time e clareza no currículo.",
+    }),
+  });
+  const createJobBody = await expectJson(createJob, "create-job");
+  if (createJob.status !== 201 || !createJobBody.id) {
+    throw new Error(`POST /jobs: ${createJob.status} ${JSON.stringify(createJobBody)}`);
+  }
+  const jobId = String(createJobBody.id);
+  console.log("ok  POST /jobs");
+
+  const putCandidate = await fetch(`${baseUrl}/me/role`, {
+    method: "PUT",
+    headers: { "X-Device-Id": candidate, "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "CANDIDATE" }),
+  });
+  const putCandidateBody = await expectJson(putCandidate, "put-candidate");
+  if (putCandidate.status !== 200 || putCandidateBody.role !== "CANDIDATE") {
+    throw new Error(`PUT candidate role: ${putCandidate.status} ${JSON.stringify(putCandidateBody)}`);
+  }
+
+  const formApply = new FormData();
+  formApply.append(
+    "file",
+    new Blob([new Uint8Array(samplePdf)], { type: "application/pdf" }),
+    "sample-resume.pdf",
+  );
+  const apply = await fetch(`${baseUrl}/jobs/${jobId}/applications`, {
+    method: "POST",
+    headers: { "X-Device-Id": candidate },
+    body: formApply,
+  });
+  const applyBody = await expectJson(apply, "apply");
+  if (apply.status !== 201 || applyBody.status !== "SUBMITTED" || !applyBody.id) {
+    throw new Error(`POST application: ${apply.status} ${JSON.stringify(applyBody)}`);
+  }
+  console.log("ok  POST /jobs/:id/applications → SUBMITTED");
+
+  const listApps = await expectJson(
+    await fetch(`${baseUrl}/applications`, { headers: { "X-Device-Id": candidate } }),
+    "list-apps",
+  );
+  const appItems = (listApps.items as unknown[]) ?? [];
+  if (appItems.length < 1) throw new Error("candidato deveria ter ao menos 1 candidatura");
+  console.log("ok  GET /applications");
+
   console.log("smoke-api passou");
 }
 

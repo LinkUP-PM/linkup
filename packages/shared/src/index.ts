@@ -51,6 +51,45 @@ export type AnalysisDetail = AnalysisSummary & {
   errorMessage?: string;
 };
 
+export type Role = "CANDIDATE" | "RECRUITER" | "EMPLOYER";
+
+export type ApplicationStatus =
+  | "SUBMITTED"
+  | "DISCARDED"
+  | "FORWARDED"
+  | "ADJUSTMENT_REQUESTED"
+  | "ACCEPTED"
+  | "REJECTED";
+
+export type Me = {
+  id: string;
+  role: Role | null;
+  createdAt: string;
+};
+
+export type Job = {
+  id: string;
+  title: string;
+  description: string;
+  lookingFor: string;
+  employerId: string;
+  createdAt: string;
+};
+
+export type ApplicationSummary = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  status: ApplicationStatus;
+  analysisId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ApplicationDetail = ApplicationSummary & {
+  decisionMessage?: string | null;
+};
+
 export type ApiErrorCode =
   | "DEVICE_ID_REQUIRED"
   | "INVALID_FILE"
@@ -60,11 +99,31 @@ export type ApiErrorCode =
   | "AI_UNAVAILABLE"
   | "AI_INVALID_RESPONSE"
   | "NOT_FOUND"
+  | "ROLE_ALREADY_SET"
+  | "ROLE_REQUIRED"
+  | "FORBIDDEN"
+  | "ALREADY_APPLIED"
+  | "INVALID_BODY"
   | "INTERNAL";
 
 export type ApiErrorBody = {
   error: ApiErrorCode;
   message: string;
+};
+
+export const ROLE_LABELS: Record<Role, string> = {
+  CANDIDATE: "Candidato",
+  RECRUITER: "Recrutador",
+  EMPLOYER: "Contratante",
+};
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  SUBMITTED: "Candidatura enviada",
+  DISCARDED: "Não avançou",
+  FORWARDED: "Encaminhada ao contratante",
+  ADJUSTMENT_REQUESTED: "Pedido de ajuste",
+  ACCEPTED: "Aceita",
+  REJECTED: "Recusada",
 };
 
 function isPoint(value: unknown): boolean {

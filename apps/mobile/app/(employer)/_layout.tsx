@@ -1,14 +1,16 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { SwitchRoleButton } from "../../src/components/SwitchRoleButton";
 import { colors, fonts } from "../../src/theme/tokens";
 
-export default function TabsLayout() {
+export default function EmployerTabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShadowVisible: false,
         headerStyle: { backgroundColor: colors.background },
         headerTitleStyle: { fontFamily: fonts.bodySemi, fontSize: 17, color: colors.ink },
+        headerRight: () => <SwitchRoleButton />,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
@@ -25,20 +27,20 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Analisar",
-          headerTitle: "LinkUP",
+          title: "Início",
+          headerTitle: "Minhas vagas",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="sparkles-outline" size={size} color={color} />
+            <Ionicons name="briefcase-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="historico"
+        name="nova"
         options={{
-          title: "Histórico",
-          headerTitle: "Histórico",
+          title: "Nova vaga",
+          headerTitle: "Nova vaga",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
+            <Ionicons name="add-circle-outline" size={size} color={color} />
           ),
         }}
       />

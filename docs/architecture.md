@@ -54,6 +54,14 @@ Ver contrato completo em [contracts/api.md](contracts/api.md).
 | Método | Caminho | Papel |
 | --- | --- | --- |
 | `GET` | `/health` | Liveness |
+| `GET` | `/me` | Device atual |
+| `PUT` | `/me/role` | Porta de papel (uma vez) |
+| `POST` | `/jobs` | Contratante abre vaga |
+| `GET` | `/jobs` | Lista conforme o papel |
+| `GET` | `/jobs/:id` | Detalhe da vaga |
+| `POST` | `/jobs/:id/applications` | Candidato envia PDF |
+| `GET` | `/applications` | Candidaturas do candidato |
+| `GET` | `/applications/:id` | Detalhe da candidatura |
 | `POST` | `/analyses` | Upload + análise |
 | `GET` | `/analyses` | Histórico do device |
 | `GET` | `/analyses/:id` | Detalhe |

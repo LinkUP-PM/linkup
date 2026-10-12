@@ -1,5 +1,13 @@
 import { Platform } from "react-native";
-import type { AnalysisDetail, AnalysisSummary, ApiErrorBody } from "@linkup/shared";
+import type {
+  AnalysisDetail,
+  AnalysisSummary,
+  ApiErrorBody,
+  ApplicationSummary,
+  Job,
+  Me,
+  Role,
+} from "@linkup/shared";
 import { API_URL } from "./config";
 import { getDeviceId } from "./device";
 
@@ -14,8 +22,10 @@ export type UploadFileInput = {
   file?: File;
 };
 
-async function headers(): Promise<Record<string, string>> {
-  return { "X-Device-Id": await getDeviceId() };
+async function headers(json = false): Promise<Record<string, string>> {
+  const base: Record<string, string> = { "X-Device-Id": await getDeviceId() };
+  if (json) base["Content-Type"] = "application/json";
+  return base;
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -78,7 +88,6 @@ async function appendPdfPart(form: FormData, input: UploadFileInput): Promise<vo
       const blobResponse = await fetch(input.uri);
       blob = await blobResponse.blob();
     }
-    // RN FormData typings only accept 2 args; browsers still honor File name via the Blob.
     const part =
       typeof File !== "undefined"
         ? new File([blob], fileName, { type: blob.type || mimeType, lastModified: Date.now() })
@@ -92,6 +101,87 @@ async function appendPdfPart(form: FormData, input: UploadFileInput): Promise<vo
     name: fileName,
     type: mimeType,
   } as unknown as Blob);
+}
+
+export async function getMe(): Promise<Me> {
+  const response = await request("/me", { headers: await headers() });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as Me;
+}
+
+export async function setRole(role: Role): Promise<Me> {
+  const response = await request("/me/role", {
+    method: "PUT",
+    headers: await headers(true),
+    body: JSON.stringify({ role }),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as Me;
+}
+
+export async function clearRole(): Promise<Me> {
+  const response = await request("/me/role", {
+    method: "DELETE",
+    headers: await headers(),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as Me;
+}
+
+export async function listJobs(): Promise<Job[]> {
+  const response = await request("/jobs", { headers: await headers() });
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { items: Job[] };
+  return body.items;
+}
+
+export async function getJob(id: string): Promise<Job> {
+  const response = await request(`/jobs/${id}`, { headers: await headers() });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as Job;
+}
+
+export async function createJob(input: {
+  title: string;
+  description: string;
+  lookingFor: string;
+}): Promise<Job> {
+  const response = await request("/jobs", {
+    method: "POST",
+    headers: await headers(true),
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as Job;
+}
+
+export async function applyToJob(
+  jobId: string,
+  input: UploadFileInput,
+): Promise<ApplicationSummary> {
+  const form = new FormData();
+  await appendPdfPart(form, input);
+
+  const response = await request(`/jobs/${jobId}/applications`, {
+    method: "POST",
+    headers: await headers(),
+    body: form,
+  });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as ApplicationSummary;
+}
+
+export async function listApplications(): Promise<ApplicationSummary[]> {
+  const response = await request("/applications", { headers: await headers() });
+  if (!response.ok) throw new Error(await parseError(response));
+  const body = (await response.json()) as { items: ApplicationSummary[] };
+  return body.items;
+}
+
+export async function getApplication(id: string): Promise<ApplicationSummary> {
+  const response = await request(`/applications/${id}`, { headers: await headers() });
+  if (!response.ok) throw new Error(await parseError(response));
+  return (await response.json()) as ApplicationSummary;
 }
 
 export async function createAnalysis(input: UploadFileInput): Promise<AnalysisDetail> {

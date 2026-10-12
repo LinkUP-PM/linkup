@@ -3,7 +3,10 @@ import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { config } from "./config.js";
 import { analysesRoutes } from "./routes/analyses.js";
+import { applicationsRoutes } from "./routes/applications.js";
 import { healthRoutes } from "./routes/health.js";
+import { jobsRoutes } from "./routes/jobs.js";
+import { meRoutes } from "./routes/me.js";
 
 const CONTRACT_CODES = new Set([
   "DEVICE_ID_REQUIRED",
@@ -14,6 +17,11 @@ const CONTRACT_CODES = new Set([
   "AI_UNAVAILABLE",
   "AI_INVALID_RESPONSE",
   "NOT_FOUND",
+  "ROLE_ALREADY_SET",
+  "ROLE_REQUIRED",
+  "FORBIDDEN",
+  "ALREADY_APPLIED",
+  "INVALID_BODY",
   "INTERNAL",
 ]);
 
@@ -51,6 +59,9 @@ export async function buildApp() {
   });
 
   await app.register(healthRoutes);
+  await app.register(meRoutes);
+  await app.register(jobsRoutes);
+  await app.register(applicationsRoutes);
   await app.register(analysesRoutes);
   return app;
 }

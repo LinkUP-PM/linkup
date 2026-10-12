@@ -75,7 +75,8 @@ npm run smoke:api
 
 | Documento | Para qu? |
 | --- | --- |
-| [docs/scope.md](docs/scope.md) | Recorte do MVP |
+| [docs/scope.md](docs/scope.md) | Recorte do produto e do que o app faz hoje |
+| [docs/areas.md](docs/areas.md) | Mapa das três áreas e telas |
 | [docs/architecture.md](docs/architecture.md) | Arquitetura e fluxo |
 | [docs/demo.md](docs/demo.md) | Roteiro de apresenta??o |
 | [docs/roles.md](docs/roles.md) | Pap?is da equipe de 6 pessoas |
