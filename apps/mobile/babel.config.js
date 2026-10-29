@@ -4,8 +4,8 @@ module.exports = function (api) {
     presets: ["babel-preset-expo"],
     plugins: [
       "@babel/plugin-transform-class-static-block",
-      "@babel/plugin-transform-private-methods",
-      "@babel/plugin-transform-private-property-in-object",
+      ["@babel/plugin-transform-private-methods", { loose: true }],
+      ["@babel/plugin-transform-private-property-in-object", { loose: true }],
       "react-native-reanimated/plugin",
     ],
   };
