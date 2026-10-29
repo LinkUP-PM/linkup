@@ -12,6 +12,16 @@ keyAlias=linkup
 storeFile=linkup-release.keystore
 `;
 
+const RELEASE_SIGNING_CONFIG = `        release {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+`;
+
 function ensureSigningFiles(projectRoot, androidAppDir) {
   const source = path.join(projectRoot, "credentials", KEYSTORE_NAME);
   const destKeystore = path.join(androidAppDir, KEYSTORE_NAME);
@@ -28,51 +38,44 @@ function ensureSigningFiles(projectRoot, androidAppDir) {
 }
 
 function applySigningBlock(buildGradle) {
-  if (buildGradle.includes("keystorePropertiesFile")) {
-    return buildGradle;
-  }
+  let next = buildGradle;
 
-  const header = `def keystorePropertiesFile = rootProject.file("app/keystore.properties")
+  if (!next.includes("keystorePropertiesFile")) {
+    const header = `def keystorePropertiesFile = rootProject.file("app/keystore.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
 
 `;
-
-  let next = buildGradle.replace(
-    /android\s*\{/,
-    `${header}android {`,
-  );
-
-  if (!next.includes("signingConfigs")) {
-    next = next.replace(
-      /buildTypes\s*\{/,
-      `signingConfigs {
-        release {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile file(keystoreProperties['storeFile'])
-                storePassword keystoreProperties['storePassword']
-            }
-        }
-    }
-    buildTypes {`,
-    );
+    next = next.replace(/android\s*\{/, `${header}android {`);
   }
 
-  next = next.replace(
-    /buildTypes\s*\{([\s\S]*?)release\s*\{/,
-    (match) => {
-      if (match.includes("signingConfig signingConfigs.release")) return match;
-      return match.replace(
-        /release\s*\{/,
-        `release {
-            signingConfig signingConfigs.release`,
+  if (!/signingConfigs\s*\{[\s\S]*?\brelease\s*\{/.test(next)) {
+    if (/signingConfigs\s*\{/.test(next)) {
+      next = next.replace(
+        /signingConfigs\s*\{/,
+        `signingConfigs {\n${RELEASE_SIGNING_CONFIG}`,
       );
-    },
-  );
+    } else {
+      next = next.replace(
+        /buildTypes\s*\{/,
+        `signingConfigs {\n${RELEASE_SIGNING_CONFIG}    }\n    buildTypes {`,
+      );
+    }
+  }
+
+  if (!next.includes("signingConfig signingConfigs.release")) {
+    next = next.replace(
+      /buildTypes\s*\{([\s\S]*?)release\s*\{/,
+      (match) =>
+        match.replace(
+          /release\s*\{/,
+          `release {
+            signingConfig signingConfigs.release`,
+        ),
+    );
+  }
 
   return next;
 }
