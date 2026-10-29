@@ -72,20 +72,32 @@ npm run dev:web
 
 Abre em `http://localhost:8081`. Contas criadas no celular não aparecem no navegador, e o contrário também.
 
+Na primeira abertura o app grava dados de demonstração (idempotente; não apaga o que você já criou). Senha de todas: `demo1234`.
+
+| Papel | E-mail |
+| --- | --- |
+| Contratante | `contratante@demo.linkup` |
+| Recrutador | `recrutador@demo.linkup` |
+| Candidato (principal) | `ana.costa@demo.linkup` |
+| Candidato | `bruno.lima@demo.linkup` |
+| Candidato | `carla.nunes@demo.linkup` |
+
+Detalhe do que cada um vê: [demo.md](demo.md).
+
 ### APK para instalar no Android
 
 1. Crie uma tag `v*` (ou rode o workflow **Android APK** manualmente)
 2. Baixe `linkup.apk` na Release do GitHub
 3. Instale no celular (origem desconhecida)
-4. Crie as três contas no mesmo aparelho e use **Sair** para trocar de papel
+4. Entre com as contas demo (ou crie as suas) e use **Sair** para trocar de papel
 
 ### Checklist rápido no app
 
-1. Cadastrar contratante → abrir vaga
-2. Sair → cadastrar candidato → candidatar com `docs/fixtures/sample-resume.pdf` → ver três blocos
-3. Sair → cadastrar recrutador → encaminhar
-4. Sair → entrar como contratante → decidir
-5. Histórico do candidato mostra a análise
+1. Entrar como contratante (`contratante@demo.linkup` / `demo1234`) → ver as duas vagas
+2. Sair → entrar como candidato Ana → ver candidaturas e abrir a análise (três blocos)
+3. Sair → entrar como recrutador → fila com Ana → abrir dossiê
+4. Entrar como contratante → indicados (Bruno encaminhado) → decidir
+5. Opcional: candidatar com `docs/fixtures/sample-resume.pdf` numa vaga nova
 6. PDF inválido / curto → mensagem de erro clara
 
 ## IA

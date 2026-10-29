@@ -1,5 +1,6 @@
 import initSqlJs, { type Database, type SqlValue } from "sql.js/dist/sql-wasm-browser.js";
 import { applySchemaMigrations, SCHEMA } from "./schema";
+import { seedDemo } from "./seed-demo";
 
 const IDB_NAME = "linkup";
 const IDB_STORE = "sqlite";
@@ -138,6 +139,7 @@ async function openWebDatabase(): Promise<WebDatabase> {
   };
 
   await applySchemaMigrations(runner);
+  await seedDemo(runner);
   await persist();
 
   return runner;

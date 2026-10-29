@@ -15,6 +15,7 @@ import type { Role } from "@linkup/shared";
 import { ROLE_LABELS } from "@linkup/shared";
 import { login, register } from "../lib/api";
 import { homeHrefForRole } from "../lib/role";
+import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../lib/seed-demo";
 import { enter } from "../theme/motion";
 import { colors, fonts, radius, spacing, type } from "../theme/tokens";
 import { Enter } from "./Enter";
@@ -26,6 +27,12 @@ type Props = {
   description: string;
 };
 
+const DEMO_EMAIL_BY_ROLE: Record<Role, string> = {
+  CANDIDATE: DEMO_ACCOUNTS.ana,
+  RECRUITER: DEMO_ACCOUNTS.recruiter,
+  EMPLOYER: DEMO_ACCOUNTS.employer,
+};
+
 export function AuthScreen({ role, description }: Props) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -35,6 +42,7 @@ export function AuthScreen({ role, description }: Props) {
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const demoEmail = DEMO_EMAIL_BY_ROLE[role];
 
   const canSubmit =
     email.trim().length > 3 &&
@@ -161,6 +169,12 @@ export function AuthScreen({ role, description }: Props) {
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
+          {mode === "login" ? (
+            <Text style={styles.demoHint}>
+              Demo: {demoEmail} · senha {DEMO_PASSWORD}
+            </Text>
+          ) : null}
+
           <PrimaryButton
             label={mode === "register" ? "Criar conta" : "Entrar"}
             onPress={() => void submit()}
@@ -261,6 +275,12 @@ const styles = StyleSheet.create({
     ...type.footnote,
     color: colors.error,
     marginHorizontal: spacing.xl,
+  },
+  demoHint: {
+    ...type.footnote,
+    color: colors.tertiary,
+    marginHorizontal: spacing.xl,
+    textAlign: "center",
   },
   submit: {
     marginHorizontal: spacing.lg,
