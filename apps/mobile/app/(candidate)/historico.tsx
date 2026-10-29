@@ -11,10 +11,12 @@ import {
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { AnalysisSummary } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
+import { GroupedSection } from "../../src/components/GroupedSection";
+import { ListRow } from "../../src/components/ListRow";
 import { StatusPill } from "../../src/components/StatusPill";
 import { listAnalyses } from "../../src/lib/api";
 import { relativeTime } from "../../src/lib/relativeTime";
-import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
+import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
 
 export default function HistoryScreen() {
   const router = useRouter();
@@ -67,8 +69,6 @@ export default function HistoryScreen() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
-      <Text style={styles.subtitle}>Suas análises neste aparelho</Text>
-
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.error}>{error}</Text>
@@ -78,30 +78,27 @@ export default function HistoryScreen() {
         </View>
       ) : null}
 
-      {items.map((item) => (
-        <Pressable
-          key={item.id}
-          style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-          onPress={() => router.push(`/analise/${item.id}`)}
-        >
-          <View style={styles.cardHeader}>
-            <StatusPill status={item.status} />
-            <Text style={styles.time}>{relativeTime(item.createdAt)}</Text>
-          </View>
-          <Text style={styles.fileName} numberOfLines={1}>
-            {item.fileName}
-          </Text>
-        </Pressable>
-      ))}
+      <GroupedSection header="Suas análises neste aparelho">
+        {items.map((item) => (
+          <ListRow
+            key={item.id}
+            title={item.fileName}
+            meta={relativeTime(item.createdAt)}
+            accessory={<StatusPill status={item.status} />}
+            onPress={() => router.push(`/analise/${item.id}`)}
+          />
+        ))}
+      </GroupedSection>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.xl,
-    gap: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.tabBarClearance,
     flexGrow: 1,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -109,50 +106,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.xl,
+    backgroundColor: colors.background,
   },
   loadingText: {
-    fontFamily: fonts.body,
+    ...type.subhead,
     color: colors.muted,
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.muted,
-    marginBottom: spacing.xs,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  cardPressed: {
-    opacity: 0.9,
-    borderColor: colors.accent,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  time: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    color: colors.muted,
-  },
-  fileName: {
-    fontFamily: fonts.bodySemi,
-    fontSize: 16,
-    color: colors.ink,
   },
   errorBox: {
     gap: spacing.sm,
     padding: spacing.lg,
     backgroundColor: colors.errorSoft,
-    borderRadius: radius.input,
+    borderRadius: radius.group,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   error: {
     fontFamily: fonts.body,

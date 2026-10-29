@@ -9,9 +9,10 @@ import {
   View,
 } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { GroupedSection } from "../../src/components/GroupedSection";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { createJob } from "../../src/lib/api";
-import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
+import { colors, fonts, spacing, type } from "../../src/theme/tokens";
 
 export default function NewJobScreen() {
   const router = useRouter();
@@ -48,48 +49,48 @@ export default function NewJobScreen() {
     >
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.intro}>
-          Título, descrição e o que você procura. A vaga já nasce ligada a este aparelho.
+          Título, descrição e o que você procura. A vaga já nasce ligada à sua conta.
         </Text>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Título</Text>
-          <TextInput
-            value={title}
-            onChangeText={setTitle}
-            placeholder="Ex.: Desenvolvedor mobile"
-            placeholderTextColor={colors.muted}
-            style={styles.input}
-            editable={!busy}
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Descrição</Text>
-          <TextInput
-            value={description}
-            onChangeText={setDescription}
-            placeholder="Contexto da vaga, time, stack…"
-            placeholderTextColor={colors.muted}
-            style={[styles.input, styles.multiline]}
-            multiline
-            textAlignVertical="top"
-            editable={!busy}
-          />
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>O que procura</Text>
-          <TextInput
-            value={lookingFor}
-            onChangeText={setLookingFor}
-            placeholder="Experiências, competências, perfil…"
-            placeholderTextColor={colors.muted}
-            style={[styles.input, styles.multiline]}
-            multiline
-            textAlignVertical="top"
-            editable={!busy}
-          />
-        </View>
+        <GroupedSection header="Detalhes">
+          <View style={styles.field}>
+            <Text style={styles.label}>Título</Text>
+            <TextInput
+              value={title}
+              onChangeText={setTitle}
+              placeholder="Ex.: Desenvolvedor mobile"
+              placeholderTextColor={colors.tertiary}
+              style={styles.input}
+              editable={!busy}
+            />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Descrição</Text>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Contexto da vaga, time, stack…"
+              placeholderTextColor={colors.tertiary}
+              style={[styles.input, styles.multiline]}
+              multiline
+              textAlignVertical="top"
+              editable={!busy}
+            />
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>O que procura</Text>
+            <TextInput
+              value={lookingFor}
+              onChangeText={setLookingFor}
+              placeholder="Experiências, competências, perfil…"
+              placeholderTextColor={colors.tertiary}
+              style={[styles.input, styles.multiline]}
+              multiline
+              textAlignVertical="top"
+              editable={!busy}
+            />
+          </View>
+        </GroupedSection>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -97,6 +98,7 @@ export default function NewJobScreen() {
           label="Publicar vaga"
           onPress={() => void submit()}
           disabled={busy || title.trim().length < 3 || description.trim().length < 3 || lookingFor.trim().length < 3}
+          style={styles.submit}
         />
       </ScrollView>
     </KeyboardAvoidingView>
@@ -104,44 +106,46 @@ export default function NewJobScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, backgroundColor: colors.background },
   container: {
-    padding: spacing.xl,
-    gap: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.tabBarClearance,
+    gap: spacing.md,
   },
   intro: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    lineHeight: 22,
+    ...type.subhead,
     color: colors.muted,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   field: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     gap: spacing.sm,
   },
   label: {
+    ...type.footnote,
     fontFamily: fonts.bodySemi,
-    fontSize: 14,
-    color: colors.ink,
+    color: colors.muted,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
   input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: radius.input,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontFamily: fonts.body,
-    fontSize: 16,
+    ...type.body,
     color: colors.ink,
+    paddingVertical: spacing.xs,
   },
   multiline: {
-    minHeight: 110,
-    paddingTop: spacing.md,
+    minHeight: 88,
+    paddingTop: spacing.xs,
   },
   error: {
-    fontFamily: fonts.body,
-    fontSize: 14,
+    ...type.footnote,
     color: colors.error,
-    lineHeight: 20,
+    marginHorizontal: spacing.xl,
+  },
+  submit: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
   },
 });

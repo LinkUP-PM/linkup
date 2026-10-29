@@ -8,12 +8,19 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../../../docs/fixtures",
 );
+const password = "senha-segura-123";
 
 async function expectJson(
   response: Response,
   label: string,
 ): Promise<Record<string, unknown>> {
   const text = await response.text();
+  if (response.status === 204) {
+    if (text.trim()) {
+      throw new Error(`${label}: 204 deveria ter corpo vazio: ${text}`);
+    }
+    return {};
+  }
   let body: Record<string, unknown>;
   try {
     body = JSON.parse(text) as Record<string, unknown>;
@@ -23,9 +30,38 @@ async function expectJson(
   return body;
 }
 
+function bearer(token: string): Record<string, string> {
+  return { Authorization: `Bearer ${token}` };
+}
+
+async function register(
+  email: string,
+  role: "CANDIDATE" | "RECRUITER" | "EMPLOYER",
+): Promise<{ token: string; user: Record<string, unknown> }> {
+  const response = await fetch(`${baseUrl}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, role }),
+  });
+  const body = await expectJson(response, `register-${role}`);
+  if (response.status !== 201 || typeof body.token !== "string") {
+    throw new Error(`register ${role}: ${response.status} ${JSON.stringify(body)}`);
+  }
+  const user = body.user as Record<string, unknown>;
+  if (!user || user.role !== role || user.email !== email) {
+    throw new Error(`register user inválido: ${JSON.stringify(body)}`);
+  }
+  return { token: body.token, user };
+}
+
 async function main() {
-  const deviceA = randomUUID();
-  const deviceB = randomUUID();
+  const suffix = randomUUID().slice(0, 8);
+  const emailA = `candidato-a-${suffix}@smoke.test`;
+  const emailB = `candidato-b-${suffix}@smoke.test`;
+  const emailEmployer = `contratante-${suffix}@smoke.test`;
+  const emailRecruiter = `recrutador-${suffix}@smoke.test`;
+  const emailCandidate = `candidato-${suffix}@smoke.test`;
+  const emailCandidate2 = `candidato2-${suffix}@smoke.test`;
 
   const health = await fetch(`${baseUrl}/health`);
   const healthBody = await expectJson(health, "health");
@@ -34,12 +70,50 @@ async function main() {
   }
   console.log("ok  health");
 
-  const noDevice = await fetch(`${baseUrl}/analyses`);
-  const noDeviceBody = await expectJson(noDevice, "no-device");
-  if (noDevice.status !== 400 || noDeviceBody.error !== "DEVICE_ID_REQUIRED") {
-    throw new Error(`DEVICE_ID_REQUIRED esperado: ${noDevice.status} ${JSON.stringify(noDeviceBody)}`);
+  const noAuth = await fetch(`${baseUrl}/analyses`);
+  const noAuthBody = await expectJson(noAuth, "no-auth");
+  if (noAuth.status !== 401 || noAuthBody.error !== "UNAUTHORIZED") {
+    throw new Error(`UNAUTHORIZED esperado: ${noAuth.status} ${JSON.stringify(noAuthBody)}`);
   }
-  console.log("ok  DEVICE_ID_REQUIRED");
+  console.log("ok  UNAUTHORIZED sem token");
+
+  const userA = await register(emailA, "CANDIDATE");
+  console.log("ok  POST /auth/register CANDIDATE");
+
+  const badLogin = await fetch(`${baseUrl}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: emailA, password: "senha-errada", role: "CANDIDATE" }),
+  });
+  const badLoginBody = await expectJson(badLogin, "bad-login");
+  if (badLogin.status !== 401 || badLoginBody.error !== "INVALID_CREDENTIALS") {
+    throw new Error(
+      `INVALID_CREDENTIALS esperado: ${badLogin.status} ${JSON.stringify(badLoginBody)}`,
+    );
+  }
+  console.log("ok  INVALID_CREDENTIALS");
+
+  const mismatch = await fetch(`${baseUrl}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: emailA, password, role: "RECRUITER" }),
+  });
+  const mismatchBody = await expectJson(mismatch, "role-mismatch");
+  if (mismatch.status !== 403 || mismatchBody.error !== "ROLE_MISMATCH") {
+    throw new Error(`ROLE_MISMATCH esperado: ${mismatch.status} ${JSON.stringify(mismatchBody)}`);
+  }
+  console.log("ok  ROLE_MISMATCH");
+
+  const taken = await fetch(`${baseUrl}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: emailA, password, role: "CANDIDATE" }),
+  });
+  const takenBody = await expectJson(taken, "email-taken");
+  if (taken.status !== 409 || takenBody.error !== "EMAIL_TAKEN") {
+    throw new Error(`EMAIL_TAKEN esperado: ${taken.status} ${JSON.stringify(takenBody)}`);
+  }
+  console.log("ok  EMAIL_TAKEN");
 
   const samplePdf = await readFile(path.join(fixturesDir, "sample-resume.pdf"));
   const formOk = new FormData();
@@ -50,7 +124,7 @@ async function main() {
   );
   const postOk = await fetch(`${baseUrl}/analyses`, {
     method: "POST",
-    headers: { "X-Device-Id": deviceA },
+    headers: bearer(userA.token),
     body: formOk,
   });
   const postOkBody = await expectJson(postOk, "post-ok");
@@ -61,7 +135,7 @@ async function main() {
   console.log("ok  POST sample-resume.pdf → COMPLETED");
 
   const detailA = await fetch(`${baseUrl}/analyses/${analysisId}`, {
-    headers: { "X-Device-Id": deviceA },
+    headers: bearer(userA.token),
   });
   const detailABody = await expectJson(detailA, "detail-a");
   if (
@@ -70,7 +144,9 @@ async function main() {
     detailABody.status !== "COMPLETED" ||
     !detailABody.result
   ) {
-    throw new Error(`GET detalhe esperado 200 COMPLETED: ${detailA.status} ${JSON.stringify(detailABody)}`);
+    throw new Error(
+      `GET detalhe esperado 200 COMPLETED: ${detailA.status} ${JSON.stringify(detailABody)}`,
+    );
   }
   console.log("ok  GET /analyses/:id");
 
@@ -83,7 +159,7 @@ async function main() {
   );
   const postShort = await fetch(`${baseUrl}/analyses`, {
     method: "POST",
-    headers: { "X-Device-Id": deviceA },
+    headers: bearer(userA.token),
     body: formShort,
   });
   const postShortBody = await expectJson(postShort, "post-short");
@@ -93,15 +169,18 @@ async function main() {
   console.log("ok  TEXT_TOO_SHORT");
 
   const listAfterFail = await expectJson(
-    await fetch(`${baseUrl}/analyses`, { headers: { "X-Device-Id": deviceA } }),
+    await fetch(`${baseUrl}/analyses`, { headers: bearer(userA.token) }),
     "list-after-fail",
   );
-  const itemsAfterFail = (listAfterFail.items as Array<{ status?: string; fileName?: string }>) ?? [];
+  const itemsAfterFail =
+    (listAfterFail.items as Array<{ status?: string; fileName?: string }>) ?? [];
   const failedShort = itemsAfterFail.find(
     (item) => item.fileName === "short-resume.pdf" && item.status === "FAILED",
   );
   if (!failedShort) {
-    throw new Error(`histórico deveria ter short-resume.pdf como FAILED: ${JSON.stringify(itemsAfterFail)}`);
+    throw new Error(
+      `histórico deveria ter short-resume.pdf como FAILED: ${JSON.stringify(itemsAfterFail)}`,
+    );
   }
   console.log("ok  FAILED persistido no histórico");
 
@@ -114,7 +193,7 @@ async function main() {
   );
   const postBad = await fetch(`${baseUrl}/analyses`, {
     method: "POST",
-    headers: { "X-Device-Id": deviceA },
+    headers: bearer(userA.token),
     body: formBad,
   });
   const postBadBody = await expectJson(postBad, "post-bad");
@@ -123,21 +202,16 @@ async function main() {
   }
   console.log("ok  INVALID_FILE");
 
-  // PDF mínimo + padding > 5 MB (não versionado)
   const oversized = new Uint8Array(6 * 1024 * 1024);
-  oversized[0] = 0x25; // %
-  oversized[1] = 0x50; // P
-  oversized[2] = 0x44; // D
-  oversized[3] = 0x46; // F
+  oversized[0] = 0x25;
+  oversized[1] = 0x50;
+  oversized[2] = 0x44;
+  oversized[3] = 0x46;
   const formBig = new FormData();
-  formBig.append(
-    "file",
-    new Blob([oversized], { type: "application/pdf" }),
-    "grande.pdf",
-  );
+  formBig.append("file", new Blob([oversized], { type: "application/pdf" }), "grande.pdf");
   const postBig = await fetch(`${baseUrl}/analyses`, {
     method: "POST",
-    headers: { "X-Device-Id": deviceA },
+    headers: bearer(userA.token),
     body: formBig,
   });
   const postBigBody = await expectJson(postBig, "post-big");
@@ -146,21 +220,24 @@ async function main() {
   }
   console.log("ok  FILE_TOO_LARGE");
 
+  const userB = await register(emailB, "CANDIDATE");
   const detailB = await fetch(`${baseUrl}/analyses/${analysisId}`, {
-    headers: { "X-Device-Id": deviceB },
+    headers: bearer(userB.token),
   });
   const detailBBody = await expectJson(detailB, "detail-b");
   if (detailB.status !== 404 || detailBBody.error !== "NOT_FOUND") {
-    throw new Error(`404 NOT_FOUND esperado para outro device: ${detailB.status} ${JSON.stringify(detailBBody)}`);
+    throw new Error(
+      `404 NOT_FOUND esperado para outra conta: ${detailB.status} ${JSON.stringify(detailBBody)}`,
+    );
   }
-  console.log("ok  isolamento por device (404)");
+  console.log("ok  isolamento por conta (404)");
 
   const listA = await expectJson(
-    await fetch(`${baseUrl}/analyses`, { headers: { "X-Device-Id": deviceA } }),
+    await fetch(`${baseUrl}/analyses`, { headers: bearer(userA.token) }),
     "list-a",
   );
   const listB = await expectJson(
-    await fetch(`${baseUrl}/analyses`, { headers: { "X-Device-Id": deviceB } }),
+    await fetch(`${baseUrl}/analyses`, { headers: bearer(userB.token) }),
     "list-b",
   );
   const itemsA = (listA.items as unknown[]) ?? [];
@@ -169,34 +246,12 @@ async function main() {
   if (itemsB.length !== 0) throw new Error("lista B deveria estar vazia");
   console.log("ok  histórico isolado");
 
-  const employer = randomUUID();
-  const candidate = randomUUID();
-
-  const putEmployer = await fetch(`${baseUrl}/me/role`, {
-    method: "PUT",
-    headers: { "X-Device-Id": employer, "Content-Type": "application/json" },
-    body: JSON.stringify({ role: "EMPLOYER" }),
-  });
-  const putEmployerBody = await expectJson(putEmployer, "put-employer");
-  if (putEmployer.status !== 200 || putEmployerBody.role !== "EMPLOYER") {
-    throw new Error(`PUT employer role: ${putEmployer.status} ${JSON.stringify(putEmployerBody)}`);
-  }
-  console.log("ok  PUT /me/role EMPLOYER");
-
-  const putAgain = await fetch(`${baseUrl}/me/role`, {
-    method: "PUT",
-    headers: { "X-Device-Id": employer, "Content-Type": "application/json" },
-    body: JSON.stringify({ role: "CANDIDATE" }),
-  });
-  const putAgainBody = await expectJson(putAgain, "put-again");
-  if (putAgain.status !== 409 || putAgainBody.error !== "ROLE_ALREADY_SET") {
-    throw new Error(`ROLE_ALREADY_SET esperado: ${putAgain.status} ${JSON.stringify(putAgainBody)}`);
-  }
-  console.log("ok  ROLE_ALREADY_SET");
+  const employer = await register(emailEmployer, "EMPLOYER");
+  console.log("ok  POST /auth/register EMPLOYER");
 
   const createJob = await fetch(`${baseUrl}/jobs`, {
     method: "POST",
-    headers: { "X-Device-Id": employer, "Content-Type": "application/json" },
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
     body: JSON.stringify({
       title: "Desenvolvedor mobile",
       description: "Time LinkUP construindo app em React Native.",
@@ -210,15 +265,7 @@ async function main() {
   const jobId = String(createJobBody.id);
   console.log("ok  POST /jobs");
 
-  const putCandidate = await fetch(`${baseUrl}/me/role`, {
-    method: "PUT",
-    headers: { "X-Device-Id": candidate, "Content-Type": "application/json" },
-    body: JSON.stringify({ role: "CANDIDATE" }),
-  });
-  const putCandidateBody = await expectJson(putCandidate, "put-candidate");
-  if (putCandidate.status !== 200 || putCandidateBody.role !== "CANDIDATE") {
-    throw new Error(`PUT candidate role: ${putCandidate.status} ${JSON.stringify(putCandidateBody)}`);
-  }
+  const candidate = await register(emailCandidate, "CANDIDATE");
 
   const formApply = new FormData();
   formApply.append(
@@ -228,7 +275,7 @@ async function main() {
   );
   const apply = await fetch(`${baseUrl}/jobs/${jobId}/applications`, {
     method: "POST",
-    headers: { "X-Device-Id": candidate },
+    headers: bearer(candidate.token),
     body: formApply,
   });
   const applyBody = await expectJson(apply, "apply");
@@ -238,12 +285,291 @@ async function main() {
   console.log("ok  POST /jobs/:id/applications → SUBMITTED");
 
   const listApps = await expectJson(
-    await fetch(`${baseUrl}/applications`, { headers: { "X-Device-Id": candidate } }),
+    await fetch(`${baseUrl}/applications`, { headers: bearer(candidate.token) }),
     "list-apps",
   );
   const appItems = (listApps.items as unknown[]) ?? [];
   if (appItems.length < 1) throw new Error("candidato deveria ter ao menos 1 candidatura");
   console.log("ok  GET /applications");
+
+  const applicationId = String(applyBody.id);
+  const recruiter = await register(emailRecruiter, "RECRUITER");
+
+  const employerQueue = await fetch(`${baseUrl}/jobs/${jobId}/applications`, {
+    headers: bearer(employer.token),
+  });
+  const employerQueueBody = await expectJson(employerQueue, "employer-queue");
+  if (employerQueue.status !== 200) {
+    throw new Error(
+      `GET job apps employer: ${employerQueue.status} ${JSON.stringify(employerQueueBody)}`,
+    );
+  }
+  const employerItems = (employerQueueBody.items as Array<{ status?: string }>) ?? [];
+  if (employerItems.some((item) => item.status === "SUBMITTED" || item.status === "DISCARDED")) {
+    throw new Error(`contratante não deveria ver fila/descartes: ${JSON.stringify(employerItems)}`);
+  }
+  if (employerItems.length !== 0) {
+    throw new Error(`contratante não deveria ver SUBMITTED na lista: ${JSON.stringify(employerItems)}`);
+  }
+  console.log("ok  contratante não vê fila SUBMITTED");
+
+  const discardNote = "Fora do perfil sênior desta vaga";
+  const discard = await fetch(`${baseUrl}/applications/${applicationId}/discard`, {
+    method: "POST",
+    headers: { ...bearer(recruiter.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ note: discardNote }),
+  });
+  const discardBody = await expectJson(discard, "discard");
+  if (discard.status !== 200 || discardBody.status !== "DISCARDED") {
+    throw new Error(`POST discard: ${discard.status} ${JSON.stringify(discardBody)}`);
+  }
+  if (discardBody.recruiterNote !== discardNote) {
+    throw new Error(`discard deveria devolver nota ao recrutador: ${JSON.stringify(discardBody)}`);
+  }
+  console.log("ok  POST /applications/:id/discard");
+
+  const candidateAfterDiscard = await expectJson(
+    await fetch(`${baseUrl}/applications/${applicationId}`, {
+      headers: bearer(candidate.token),
+    }),
+    "candidate-after-discard",
+  );
+  if (candidateAfterDiscard.status !== "DISCARDED") {
+    throw new Error(`candidato deveria ver DISCARDED: ${JSON.stringify(candidateAfterDiscard)}`);
+  }
+  if ("recruiterNote" in candidateAfterDiscard && candidateAfterDiscard.recruiterNote != null) {
+    throw new Error(`nota interna vazou para o candidato: ${JSON.stringify(candidateAfterDiscard)}`);
+  }
+  if ("candidateEmail" in candidateAfterDiscard && candidateAfterDiscard.candidateEmail != null) {
+    throw new Error(`e-mail vazou no GET do candidato: ${JSON.stringify(candidateAfterDiscard)}`);
+  }
+  console.log("ok  nota interna e e-mail não vazam no GET do candidato");
+
+  const candidate2 = await register(emailCandidate2, "CANDIDATE");
+
+  const formApply2 = new FormData();
+  formApply2.append(
+    "file",
+    new Blob([new Uint8Array(samplePdf)], { type: "application/pdf" }),
+    "sample-resume.pdf",
+  );
+  const apply2 = await fetch(`${baseUrl}/jobs/${jobId}/applications`, {
+    method: "POST",
+    headers: bearer(candidate2.token),
+    body: formApply2,
+  });
+  const apply2Body = await expectJson(apply2, "apply2");
+  if (apply2.status !== 201 || apply2Body.status !== "SUBMITTED" || !apply2Body.id) {
+    throw new Error(`POST application2: ${apply2.status} ${JSON.stringify(apply2Body)}`);
+  }
+  const application2Id = String(apply2Body.id);
+
+  const recruiterQueue = await fetch(`${baseUrl}/jobs/${jobId}/applications`, {
+    headers: bearer(recruiter.token),
+  });
+  const recruiterQueueBody = await expectJson(recruiterQueue, "recruiter-queue");
+  if (recruiterQueue.status !== 200) {
+    throw new Error(
+      `GET job apps recruiter: ${recruiterQueue.status} ${JSON.stringify(recruiterQueueBody)}`,
+    );
+  }
+  const recruiterItems =
+    (recruiterQueueBody.items as Array<{
+      id?: string;
+      candidateEmail?: string;
+      submissionCount?: number;
+      previewSkills?: string[];
+    }>) ?? [];
+  const queuedApp2 = recruiterItems.find((item) => item.id === application2Id);
+  if (!queuedApp2?.candidateEmail || typeof queuedApp2.candidateEmail !== "string") {
+    throw new Error(`fila do recrutador deveria trazer e-mail: ${JSON.stringify(queuedApp2)}`);
+  }
+  if (queuedApp2.submissionCount !== 1) {
+    throw new Error(`submissionCount deveria ser 1: ${JSON.stringify(queuedApp2)}`);
+  }
+  console.log("ok  fila do recrutador com e-mail e submissionCount");
+
+  const inbox = await fetch(`${baseUrl}/applications/inbox`, {
+    headers: bearer(recruiter.token),
+  });
+  const inboxBody = await expectJson(inbox, "inbox");
+  if (inbox.status !== 200) {
+    throw new Error(`GET inbox: ${inbox.status} ${JSON.stringify(inboxBody)}`);
+  }
+  const inboxItems = (inboxBody.items as Array<{ id?: string; status?: string }>) ?? [];
+  if (!inboxItems.some((item) => item.id === application2Id && item.status === "SUBMITTED")) {
+    throw new Error(`inbox deveria incluir application2: ${JSON.stringify(inboxItems)}`);
+  }
+  if (inboxItems.some((item) => item.status !== "SUBMITTED")) {
+    throw new Error(`inbox só deveria ter SUBMITTED: ${JSON.stringify(inboxItems)}`);
+  }
+  console.log("ok  GET /applications/inbox");
+
+  const tags = await fetch(`${baseUrl}/applications/${application2Id}/tags`, {
+    method: "PATCH",
+    headers: { ...bearer(recruiter.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ tags: ["forte", "duvida"] }),
+  });
+  const tagsBody = await expectJson(tags, "tags");
+  if (tags.status !== 200) {
+    throw new Error(`PATCH tags: ${tags.status} ${JSON.stringify(tagsBody)}`);
+  }
+  const tagList = tagsBody.recruiterTags as string[] | undefined;
+  if (!tagList || tagList.length !== 2 || !tagList.includes("forte") || !tagList.includes("duvida")) {
+    throw new Error(`tags inválidas: ${JSON.stringify(tagsBody)}`);
+  }
+  console.log("ok  PATCH /applications/:id/tags");
+
+  const freeNote = "Chamar para confirmar disponibilidade";
+  const noteRes = await fetch(`${baseUrl}/applications/${application2Id}/notes`, {
+    method: "POST",
+    headers: { ...bearer(recruiter.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ text: freeNote }),
+  });
+  const noteBody = await expectJson(noteRes, "notes");
+  if (noteRes.status !== 200 || noteBody.recruiterNote !== freeNote) {
+    throw new Error(`POST notes: ${noteRes.status} ${JSON.stringify(noteBody)}`);
+  }
+  const noteEntries =
+    (noteBody.recruiterNotes as Array<{ text?: string; action?: string }>) ?? [];
+  if (!noteEntries.some((entry) => entry.text === freeNote && entry.action === "NOTE")) {
+    throw new Error(`histórico deveria ter NOTE: ${JSON.stringify(noteBody)}`);
+  }
+  if (noteBody.status !== "SUBMITTED") {
+    throw new Error(`nota livre não deveria mudar status: ${JSON.stringify(noteBody)}`);
+  }
+  console.log("ok  POST /applications/:id/notes");
+
+  const candidateSeesTags = await expectJson(
+    await fetch(`${baseUrl}/applications/${application2Id}`, {
+      headers: bearer(candidate2.token),
+    }),
+    "candidate-no-tags",
+  );
+  if ("recruiterTags" in candidateSeesTags && candidateSeesTags.recruiterTags != null) {
+    throw new Error(`tags vazaram para o candidato: ${JSON.stringify(candidateSeesTags)}`);
+  }
+  if ("recruiterNotes" in candidateSeesTags && candidateSeesTags.recruiterNotes != null) {
+    throw new Error(`notas vazaram para o candidato: ${JSON.stringify(candidateSeesTags)}`);
+  }
+  console.log("ok  tags e notas não vazam para o candidato");
+
+  const forwardNote = "Perfil alinhado ao que a vaga pede";
+  const forward = await fetch(`${baseUrl}/applications/${application2Id}/forward`, {
+    method: "POST",
+    headers: { ...bearer(recruiter.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ note: forwardNote }),
+  });
+  const forwardBody = await expectJson(forward, "forward");
+  if (forward.status !== 200 || forwardBody.status !== "FORWARDED") {
+    throw new Error(`POST forward: ${forward.status} ${JSON.stringify(forwardBody)}`);
+  }
+  if (forwardBody.recruiterNote !== forwardNote) {
+    throw new Error(`forward deveria devolver nota ao recrutador: ${JSON.stringify(forwardBody)}`);
+  }
+  const forwardNotes =
+    (forwardBody.recruiterNotes as Array<{ text?: string; action?: string }>) ?? [];
+  if (!forwardNotes.some((entry) => entry.text === forwardNote && entry.action === "FORWARD")) {
+    throw new Error(`histórico deveria ter FORWARD: ${JSON.stringify(forwardBody)}`);
+  }
+  if (!forwardNotes.some((entry) => entry.action === "NOTE")) {
+    throw new Error(`histórico deveria manter NOTE anterior: ${JSON.stringify(forwardBody)}`);
+  }
+  console.log("ok  POST /applications/:id/forward");
+
+  const candidateAfterForward = await expectJson(
+    await fetch(`${baseUrl}/applications/${application2Id}`, {
+      headers: bearer(candidate2.token),
+    }),
+    "candidate-after-forward",
+  );
+  if (
+    "recruiterNote" in candidateAfterForward &&
+    candidateAfterForward.recruiterNote != null
+  ) {
+    throw new Error(
+      `nota do forward vazou para o candidato: ${JSON.stringify(candidateAfterForward)}`,
+    );
+  }
+  if (
+    "candidateEmail" in candidateAfterForward &&
+    candidateAfterForward.candidateEmail != null
+  ) {
+    throw new Error(
+      `e-mail vazou no GET do candidato após forward: ${JSON.stringify(candidateAfterForward)}`,
+    );
+  }
+  console.log("ok  nota do forward não vaza para o candidato");
+
+  const rejectNoMsg = await fetch(`${baseUrl}/applications/${application2Id}/decision`, {
+    method: "POST",
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "REJECT" }),
+  });
+  const rejectNoMsgBody = await expectJson(rejectNoMsg, "reject-no-msg");
+  if (rejectNoMsg.status !== 400 || rejectNoMsgBody.error !== "INVALID_BODY") {
+    throw new Error(`recusa sem texto: ${rejectNoMsg.status} ${JSON.stringify(rejectNoMsgBody)}`);
+  }
+  console.log("ok  REJECT sem message → INVALID_BODY");
+
+  const askAdjust = await fetch(`${baseUrl}/applications/${application2Id}/decision`, {
+    method: "POST",
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "REQUEST_ADJUSTMENT",
+      message: "Detalhe melhor os projetos recentes com métricas.",
+    }),
+  });
+  const askAdjustBody = await expectJson(askAdjust, "ask-adjust");
+  if (askAdjust.status !== 200 || askAdjustBody.status !== "ADJUSTMENT_REQUESTED") {
+    throw new Error(`POST decision adjust: ${askAdjust.status} ${JSON.stringify(askAdjustBody)}`);
+  }
+  if (
+    askAdjustBody.decisionMessage !== "Detalhe melhor os projetos recentes com métricas."
+  ) {
+    throw new Error(`decisionMessage ausente: ${JSON.stringify(askAdjustBody)}`);
+  }
+  console.log("ok  POST /applications/:id/decision REQUEST_ADJUSTMENT");
+
+  const formResubmit = new FormData();
+  formResubmit.append(
+    "file",
+    new Blob([new Uint8Array(samplePdf)], { type: "application/pdf" }),
+    "sample-resume-v2.pdf",
+  );
+  const resubmit = await fetch(`${baseUrl}/applications/${application2Id}/resubmit`, {
+    method: "POST",
+    headers: bearer(candidate2.token),
+    body: formResubmit,
+  });
+  const resubmitBody = await expectJson(resubmit, "resubmit");
+  if (resubmit.status !== 200 || resubmitBody.status !== "SUBMITTED") {
+    throw new Error(`POST resubmit: ${resubmit.status} ${JSON.stringify(resubmitBody)}`);
+  }
+  if (resubmitBody.analysisId === apply2Body.analysisId) {
+    throw new Error(`resubmit deveria trocar analysisId: ${JSON.stringify(resubmitBody)}`);
+  }
+  if (resubmitBody.decisionMessage != null) {
+    throw new Error(`resubmit deveria limpar decisionMessage: ${JSON.stringify(resubmitBody)}`);
+  }
+  console.log("ok  POST /applications/:id/resubmit → SUBMITTED");
+
+  const logout = await fetch(`${baseUrl}/auth/session`, {
+    method: "DELETE",
+    headers: bearer(candidate2.token),
+  });
+  if (logout.status !== 204) {
+    const logoutBody = await expectJson(logout, "logout");
+    throw new Error(`DELETE session: ${logout.status} ${JSON.stringify(logoutBody)}`);
+  }
+  const afterLogout = await fetch(`${baseUrl}/me`, { headers: bearer(candidate2.token) });
+  const afterLogoutBody = await expectJson(afterLogout, "after-logout");
+  if (afterLogout.status !== 401 || afterLogoutBody.error !== "UNAUTHORIZED") {
+    throw new Error(
+      `após logout: ${afterLogout.status} ${JSON.stringify(afterLogoutBody)}`,
+    );
+  }
+  console.log("ok  DELETE /auth/session");
 
   console.log("smoke-api passou");
 }

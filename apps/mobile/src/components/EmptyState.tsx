@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors, fonts, spacing } from "../theme/tokens";
+import { colors, spacing, type } from "../theme/tokens";
 import { PrimaryButton } from "./PrimaryButton";
 
 type Props = {
@@ -38,19 +38,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     paddingHorizontal: spacing.xl,
+    backgroundColor: colors.background,
     gap: spacing.md,
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 26,
+    ...type.title2,
     color: colors.ink,
-    lineHeight: 32,
   },
   body: {
-    fontFamily: fonts.body,
-    fontSize: 16,
+    ...type.body,
     color: colors.muted,
-    lineHeight: 24,
   },
   button: {
     marginTop: spacing.md,

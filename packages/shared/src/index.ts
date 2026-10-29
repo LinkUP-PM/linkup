@@ -61,10 +61,18 @@ export type ApplicationStatus =
   | "ACCEPTED"
   | "REJECTED";
 
+export type DecisionAction = "ACCEPT" | "REJECT" | "REQUEST_ADJUSTMENT";
+
 export type Me = {
   id: string;
-  role: Role | null;
+  email: string;
+  role: Role;
   createdAt: string;
+};
+
+export type AuthResponse = {
+  token: string;
+  user: Me;
 };
 
 export type Job = {
@@ -73,6 +81,46 @@ export type Job = {
   description: string;
   lookingFor: string;
   employerId: string;
+  createdAt: string;
+  /** Recrutador: candidaturas ainda na fila (SUBMITTED). */
+  queueCount?: number;
+  /** Contratante: encaminhadas aguardando decisão (FORWARDED). */
+  pendingDecisionCount?: number;
+  /** Recrutador: já encaminhadas (FORWARDED). */
+  forwardedCount?: number;
+  /** Recrutador: aguardando reenvio do candidato (ADJUSTMENT_REQUESTED). */
+  adjustmentCount?: number;
+  /** Recrutador: DISCARDED + ACCEPTED + REJECTED. */
+  closedCount?: number;
+};
+
+/** Tags internas do recrutador (só ele vê). Conjunto fixo do MVP. */
+export type RecruiterTag =
+  | "forte"
+  | "duvida"
+  | "perfil-senior"
+  | "comunicar-depois";
+
+export const RECRUITER_TAGS: readonly RecruiterTag[] = [
+  "forte",
+  "duvida",
+  "perfil-senior",
+  "comunicar-depois",
+] as const;
+
+export const RECRUITER_TAG_LABELS: Record<RecruiterTag, string> = {
+  forte: "Forte",
+  duvida: "Dúvida",
+  "perfil-senior": "Perfil sênior",
+  "comunicar-depois": "Comunicar depois",
+};
+
+export type RecruiterNoteAction = "NOTE" | "FORWARD" | "DISCARD";
+
+export type RecruiterNoteEntry = {
+  id: string;
+  text: string;
+  action: RecruiterNoteAction;
   createdAt: string;
 };
 
@@ -84,14 +132,51 @@ export type ApplicationSummary = {
   analysisId: string;
   createdAt: string;
   updatedAt: string;
+  decisionMessage?: string | null;
+  /** Só aparece para o recrutador. */
+  candidateEmail?: string;
+  /** Só aparece para o recrutador. 1 na primeira vez; incrementa no reenvio. */
+  submissionCount?: number;
+  /** Só aparece para o recrutador. Até 3 competências da análise. */
+  previewSkills?: string[];
+  /** Só aparece para o recrutador. Até 2 títulos de pontos fortes. */
+  previewStrengths?: string[];
+  /** Só aparece para o recrutador. Até 1 título de ponto de atenção. */
+  previewAttention?: string[];
+  /** Só aparece para o recrutador. Tags internas. */
+  recruiterTags?: RecruiterTag[];
 };
 
 export type ApplicationDetail = ApplicationSummary & {
-  decisionMessage?: string | null;
+  /** Só aparece para o recrutador. Atalho da última nota do histórico. */
+  recruiterNote?: string | null;
+  /** Só aparece para o recrutador. Histórico append-only, mais recente primeiro. */
+  recruiterNotes?: RecruiterNoteEntry[];
+  analysis?: AnalysisDetail | null;
 };
 
+export function isRecruiterTag(value: unknown): value is RecruiterTag {
+  return typeof value === "string" && (RECRUITER_TAGS as readonly string[]).includes(value);
+}
+
+export function normalizeRecruiterTags(value: unknown): RecruiterTag[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<RecruiterTag>();
+  const out: RecruiterTag[] = [];
+  for (const item of value) {
+    if (isRecruiterTag(item) && !seen.has(item)) {
+      seen.add(item);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 export type ApiErrorCode =
-  | "DEVICE_ID_REQUIRED"
+  | "UNAUTHORIZED"
+  | "INVALID_CREDENTIALS"
+  | "ROLE_MISMATCH"
+  | "EMAIL_TAKEN"
   | "INVALID_FILE"
   | "FILE_TOO_LARGE"
   | "TEXT_NOT_EXTRACTABLE"
@@ -99,11 +184,11 @@ export type ApiErrorCode =
   | "AI_UNAVAILABLE"
   | "AI_INVALID_RESPONSE"
   | "NOT_FOUND"
-  | "ROLE_ALREADY_SET"
   | "ROLE_REQUIRED"
   | "FORBIDDEN"
   | "ALREADY_APPLIED"
   | "INVALID_BODY"
+  | "INVALID_TRANSITION"
   | "INTERNAL";
 
 export type ApiErrorBody = {

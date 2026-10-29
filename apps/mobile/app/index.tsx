@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
 import { getMe } from "../src/lib/api";
-import { getStoredRole, homeHrefForRole, isRole, setStoredRole } from "../src/lib/role";
+import { homeHrefForRole, isRole } from "../src/lib/role";
+import { clearSessionToken, getSessionToken } from "../src/lib/session";
 import { colors, fonts, spacing } from "../src/theme/tokens";
 
 export default function BootstrapScreen() {
@@ -14,9 +15,9 @@ export default function BootstrapScreen() {
 
     async function boot() {
       try {
-        const local = await getStoredRole();
-        if (local) {
-          if (!cancelled) router.replace(homeHrefForRole(local) as Href);
+        const token = await getSessionToken();
+        if (!token) {
+          if (!cancelled) router.replace("/home" as Href);
           return;
         }
 
@@ -24,15 +25,19 @@ export default function BootstrapScreen() {
         if (cancelled) return;
 
         if (isRole(me.role)) {
-          await setStoredRole(me.role);
           router.replace(homeHrefForRole(me.role) as Href);
           return;
         }
 
-        router.replace("/porta" as Href);
+        await clearSessionToken();
+        router.replace("/home" as Href);
       } catch (err) {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Não foi possível iniciar o app.");
+        await clearSessionToken();
+        const message = err instanceof Error ? err.message : "Não foi possível iniciar o app.";
+        // Sem rede: ainda manda à home; mostra o erro na tela de espera um instante.
+        setError(message);
+        router.replace("/home" as Href);
       }
     }
 

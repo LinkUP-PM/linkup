@@ -6,7 +6,7 @@ const STATUS_META: Record<
   AnalysisStatus,
   { label: string; color: string; background: string }
 > = {
-  PENDING: { label: "Pendente", color: colors.muted, background: colors.border },
+  PENDING: { label: "Pendente", color: colors.muted, background: colors.surfaceElevated },
   EXTRACTING: { label: "Extraindo", color: colors.attention, background: colors.attentionSoft },
   ANALYZING: { label: "Analisando", color: colors.accent, background: colors.accentSoft },
   COMPLETED: { label: "Concluída", color: colors.strengths, background: colors.strengthsSoft },

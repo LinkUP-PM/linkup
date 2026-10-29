@@ -19,19 +19,19 @@ Três áreas no mesmo app, ligadas por um único processo de candidatura:
 
 Detalhe de telas, status e o que cada papel vê: [areas.md](areas.md).
 
-A porta de papel, vaga e candidatura enviada já estão no código. Triagem do recrutador e decisão do contratante ficam para o próximo corte.
+Home pública, porta, login por papel, vaga, candidatura, triagem e decisão (com reenvio após ajuste) estão no código.
 
 ## O que o app faz hoje
 
-O app já tem a porta de papel, vaga do contratante e candidatura do candidato até o status **enviada**. Triagem e decisão ainda não.
-
 Aplicativo **mobile** que:
 
-1. Escolhe um papel (candidato, recrutador ou contratante) uma vez por aparelho
+1. Mostra a home pública e, ao entrar, escolhe a porta do papel e entra (ou cria conta) com e-mail e senha
 2. Contratante abre vaga; candidato se candidata com PDF
 3. Extrai o texto e analisa com IA generativa
-4. Mostra feedback em três blocos e status "Candidatura enviada"
-5. Guarda análises no histórico do candidato
+4. Mostra feedback em três blocos e status da candidatura
+5. Recrutador tria (encaminha ou descarta); contratante decide (aceita, recusa ou pede ajuste)
+6. Pedido de ajuste volta ao candidato, que reenvia o PDF e reabre a triagem
+7. Guarda análises no histórico do candidato
 
 ### Jornada atual
 
@@ -41,6 +41,8 @@ Aplicativo **mobile** que:
 | 02 | Extrair | Sistema valida e extrai texto |
 | 03 | Analisar | IA organiza os achados |
 | 04 | Agir | Usuário lê recomendações e consulta histórico |
+| 05 | Triar | Recrutador encaminha ou descarta |
+| 06 | Decidir | Contratante aceita, recusa ou pede ajuste |
 
 ### Funcionalidades incluídas (hoje)
 
@@ -50,8 +52,9 @@ Aplicativo **mobile** que:
 4. Feedback: pontos fortes, pontos de atenção, sugestões concretas
 5. Histórico das análises do usuário
 6. Interface mobile com estados de carregamento, sucesso e erro
+7. Home pública, porta, login por papel, vagas, candidaturas e fluxo de triagem/decisão
 
-Essa análise e esse histórico passam a ser o núcleo da área do **candidato** no mapa novo. Recrutador e contratante leem o mesmo resultado com visões diferentes — ver [areas.md](areas.md).
+Essa análise e esse histórico são o núcleo da área do **candidato**. Recrutador e contratante leem o mesmo resultado com visões diferentes — ver [areas.md](areas.md).
 
 ## Formato do feedback
 
@@ -70,7 +73,7 @@ Cada análise responde três perguntas:
 | Integração com plataformas de emprego | Não |
 | Ranking entre usuários | Não |
 | Versão web | Não |
-| Login complexo | Não — ver ADR 0002 |
+| Login complexo (OAuth, recuperação, confirmação de e-mail) | Não — ver ADR 0005 (e-mail/senha simples está dentro) |
 | Monetização | Não |
 | Comparação automática com uma vaga específica | Não — ver ADR 0004 |
 | Chat, push | Não |
@@ -88,9 +91,6 @@ Cada análise responde três perguntas:
 5. Análises anteriores aparecem no histórico
 6. Funções principais permanecem estáveis com currículos reais
 7. A equipe explica valor e limitações com clareza
-
-### Do mapa de três papéis (quando a implementação começar)
-
 8. Cada papel entra só na própria área
 9. Uma candidatura percorre candidato → recrutador → contratante com status legível
 10. Pedido de ajuste volta ao candidato e reabre a triagem após reenvio

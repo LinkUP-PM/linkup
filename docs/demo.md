@@ -8,10 +8,9 @@ Upload → Extração → Análise → Feedback → Histórico
 
 ## Antes de começar
 
-1. Postgres + API no ar (`docs/runbook.md`)
-2. `AI_PROVIDER=mock` (padrão) — demo sem chave OpenAI
-3. Mobile: Expo Go no celular **ou** emulador Android (`10.0.2.2`)
-4. No celular físico: mesma Wi‑Fi e `EXPO_PUBLIC_API_URL=http://<IP-do-PC>:3333`
+**Opção A — APK no celular (recomendado para apresentar):** instale `linkup.apk` da Release. Banco e análise ficam no aparelho; sem API. Crie as três contas e use **Sair** para trocar de papel. Ver [runbook](runbook.md) e [ADR 0006](adr/0006-apk-sqlite-local.md).
+
+**Opção B — desenvolvimento da API:** Postgres + API no ar (`docs/runbook.md`), `AI_PROVIDER=mock`, Expo no emulador.
 
 ## Roteiro sugerido
 
@@ -34,7 +33,7 @@ Upload → Extração → Análise → Feedback → Histórico
 
 ## Limitações do MVP (falar na demo)
 
-- Sem login — histórico por `deviceId` no aparelho
+- Login simples por e-mail e senha (sem OAuth nem recuperação) — ver ADR 0005
 - Sem comparação com vaga, sem reescrita completa, sem web
 - PDF escaneado (só imagem) falha de propósito com mensagem clara
 - Não promete emprego nem ranking

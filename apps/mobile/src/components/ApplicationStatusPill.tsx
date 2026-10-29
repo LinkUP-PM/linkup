@@ -5,7 +5,7 @@ import { colors, fonts, radius, spacing } from "../theme/tokens";
 
 const STATUS_META: Record<ApplicationStatus, { color: string; background: string }> = {
   SUBMITTED: { color: colors.accent, background: colors.accentSoft },
-  DISCARDED: { color: colors.muted, background: colors.border },
+  DISCARDED: { color: colors.muted, background: colors.surfaceElevated },
   FORWARDED: { color: colors.attention, background: colors.attentionSoft },
   ADJUSTMENT_REQUESTED: { color: colors.attention, background: colors.attentionSoft },
   ACCEPTED: { color: colors.strengths, background: colors.strengthsSoft },

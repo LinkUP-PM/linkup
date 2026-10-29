@@ -32,13 +32,27 @@ enum ApplicationStatus {
 
 model User {
   id           String        @id @default(cuid())
-  deviceId     String        @unique
-  role         Role?
+  email        String        @unique
+  passwordHash String
+  role         Role
   analyses     Analysis[]
   jobs         Job[]         @relation("EmployerJobs")
   applications Application[] @relation("CandidateApplications")
+  sessions     Session[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Analysis {
@@ -74,19 +88,43 @@ model Job {
   @@index([createdAt])
 }
 
+enum RecruiterNoteAction {
+  NOTE
+  FORWARD
+  DISCARD
+}
+
 model Application {
-  id         String            @id @default(cuid())
-  jobId      String
-  job        Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  candidateId String
-  candidate  User              @relation("CandidateApplications", fields: [candidateId], references: [id], onDelete: Cascade)
-  analysisId String            @unique
-  analysis   Analysis          @relation(fields: [analysisId], references: [id], onDelete: Cascade)
-  status     ApplicationStatus @default(SUBMITTED)
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  id               String                @id @default(cuid())
+  jobId            String
+  job              Job                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId      String
+  candidate        User                  @relation("CandidateApplications", fields: [candidateId], references: [id], onDelete: Cascade)
+  analysisId       String                @unique
+  analysis         Analysis              @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  status           ApplicationStatus     @default(SUBMITTED)
+  recruiterNote    String?
+  decisionMessage  String?
+  submissionCount  Int                   @default(1)
+  /** JSON array of RecruiterTag strings; recruiter-only. */
+  recruiterTags    Json                  @default("[]")
+  noteEntries      RecruiterNoteEntry[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
 
   @@unique([jobId, candidateId])
   @@index([candidateId, createdAt])
   @@index([jobId, status])
+  @@index([status, createdAt])
+}
+
+model RecruiterNoteEntry {
+  id            String              @id @default(cuid())
+  applicationId String
+  application   Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  text          String
+  action        RecruiterNoteAction
+  createdAt     DateTime            @default(now())
+
+  @@index([applicationId, createdAt])
 }

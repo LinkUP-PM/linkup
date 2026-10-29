@@ -17,11 +17,14 @@ Uma tarefa está pronta quando:
 | Critério | Status |
 | --- | --- |
 | Fluxo Upload → Extração → Análise → Feedback → Histórico na API (mock) | Feito — `smoke:api` |
-| Feedback em três blocos + histórico por device | Feito |
+| Feedback em três blocos + histórico por conta | Feito |
 | PDF inválido / texto curto com mensagem clara | Feito (API + fixtures) |
 | PDF grande / escaneado | Grande: receita no runbook; escaneado: erro `TEXT_NOT_EXTRACTABLE` |
+| Login por papel + vaga + candidatura `SUBMITTED` | Feito — `smoke:api` |
+| Triagem do recrutador (encaminhar / descartar) | Feito — `smoke:api` |
+| Decisão do contratante + reenvio após ajuste | Feito — `smoke:api` |
 | Fluxo no **celular físico** (Expo Go + LAN) | Pendente — checklist em `docs/runbook.md` |
 | Feedback com OpenAI real | Pendente — precisa de `OPENAI_API_KEY` |
 | Demo explicando escolhas e limitações | Roteiro em `docs/demo.md` — execução ao vivo pendente |
 
-O MVP acadêmico está **pronto para demo com mock** assim que o checklist Etapa 5 no celular for validado uma vez.
+O MVP acadêmico está **pronto para demo com mock** assim que o checklist Etapa 5 no celular for validado uma vez. O processo de três papéis (triagem e decisão) já está coberto pelo smoke da API e pelas telas mobile.

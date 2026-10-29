@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, type ViewStyle } from "react-native";
-import { colors, fonts, radius, spacing } from "../theme/tokens";
+import { Platform, Pressable, StyleSheet, Text, type ViewStyle } from "react-native";
+import * as Haptics from "expo-haptics";
+import { colors, fonts, radius, spacing, type } from "../theme/tokens";
 
 type Props = {
   label: string;
@@ -13,9 +14,16 @@ export function PrimaryButton({ label, onPress, disabled, variant = "primary", s
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
 
+  function handlePress() {
+    if (Platform.OS !== "web") {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onPress();
+  }
+
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       disabled={disabled}
       style={({ pressed }) => [
         styles.base,
@@ -44,22 +52,22 @@ export function PrimaryButton({ label, onPress, disabled, variant = "primary", s
 const styles = StyleSheet.create({
   base: {
     borderRadius: radius.button,
-    paddingVertical: spacing.lg,
+    minHeight: 50,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },
   primary: {
-    backgroundColor: colors.ink,
+    backgroundColor: colors.accent,
   },
   secondary: {
-    backgroundColor: colors.surface,
-    borderWidth: 1.5,
-    borderColor: colors.border,
+    backgroundColor: colors.surfaceElevated,
   },
   ghost: {
     backgroundColor: "transparent",
-    paddingVertical: spacing.md,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
   },
   pressed: {
     opacity: 0.85,
@@ -68,11 +76,11 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   label: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    fontFamily: fonts.bodySemi,
+    fontSize: type.headline.fontSize,
   },
   labelPrimary: {
-    color: colors.white,
+    color: colors.ink,
   },
   labelSecondary: {
     color: colors.ink,

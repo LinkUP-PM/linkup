@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as DocumentPicker from "expo-document-picker";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AnalyzingOverlay } from "../../src/components/AnalyzingOverlay";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { createAnalysis } from "../../src/lib/api";
-import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
+import { pickPdf } from "../../src/lib/pick-pdf";
+import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
 
 const CHIPS = [
   { label: "Fortes", color: colors.strengths, background: colors.strengthsSoft },
@@ -23,12 +23,9 @@ export default function HomeScreen() {
 
   async function pickAndSend() {
     setError(null);
-    let picked: Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
+    let file: Awaited<ReturnType<typeof pickPdf>>;
     try {
-      picked = await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
-        copyToCacheDirectory: true,
-      });
+      file = await pickPdf();
     } catch (err) {
       setError(
         err instanceof Error
@@ -37,17 +34,11 @@ export default function HomeScreen() {
       );
       return;
     }
-    if (picked.canceled || !picked.assets[0]) return;
+    if (!file) return;
 
-    const file = picked.assets[0];
     setBusy(true);
     try {
-      const analysis = await createAnalysis({
-        uri: file.uri,
-        name: file.name ?? "curriculo.pdf",
-        mimeType: file.mimeType ?? "application/pdf",
-        file: file.file,
-      });
+      const analysis = await createAnalysis(file);
       router.push(`/analise/${analysis.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível analisar o arquivo.");
@@ -57,7 +48,12 @@ export default function HomeScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.tabBarClearance - 24 },
+      ]}
+    >
       <View style={styles.content}>
         <Text style={styles.brand}>LinkUP</Text>
         <Text style={styles.title}>Seu currículo, com o que melhorar agora.</Text>
@@ -107,32 +103,29 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     justifyContent: "space-between",
+    backgroundColor: colors.background,
   },
   content: {
     gap: spacing.md,
     flex: 1,
   },
   brand: {
+    ...type.footnote,
     fontFamily: fonts.bodySemi,
-    fontSize: 13,
     color: colors.accent,
     letterSpacing: 1.2,
     textTransform: "uppercase",
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 36,
+    ...type.title1,
     color: colors.ink,
     marginTop: spacing.xs,
   },
   body: {
-    fontFamily: fonts.body,
-    fontSize: 16,
-    lineHeight: 24,
+    ...type.body,
     color: colors.muted,
   },
   chips: {
@@ -154,8 +147,8 @@ const styles = StyleSheet.create({
   dropzone: {
     borderWidth: 1.5,
     borderStyle: "dashed",
-    borderColor: colors.border,
-    borderRadius: radius.card,
+    borderColor: colors.separator,
+    borderRadius: radius.group,
     backgroundColor: colors.surface,
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.xl,
@@ -180,13 +173,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   dropTitle: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    ...type.headline,
     color: colors.ink,
   },
   dropHint: {
-    fontFamily: fonts.body,
-    fontSize: 14,
+    ...type.footnote,
     color: colors.muted,
     textAlign: "center",
   },
@@ -196,11 +187,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   error: {
-    fontFamily: fonts.body,
-    fontSize: 14,
+    ...type.footnote,
     color: colors.error,
     textAlign: "center",
-    lineHeight: 20,
   },
   retryHint: {
     fontFamily: fonts.bodySemi,

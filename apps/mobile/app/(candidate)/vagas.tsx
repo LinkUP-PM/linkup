@@ -11,9 +11,11 @@ import {
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { Job } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
+import { GroupedSection } from "../../src/components/GroupedSection";
+import { ListRow } from "../../src/components/ListRow";
 import { listJobs } from "../../src/lib/api";
 import { relativeTime } from "../../src/lib/relativeTime";
-import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
+import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
 
 export default function CandidateJobsScreen() {
   const router = useRouter();
@@ -73,30 +75,27 @@ export default function CandidateJobsScreen() {
         </View>
       ) : null}
 
-      {items.map((job) => (
-        <Pressable
-          key={job.id}
-          style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-          onPress={() => router.push(`/vaga/${job.id}` as Href)}
-        >
-          <Text style={styles.title} numberOfLines={2}>
-            {job.title}
-          </Text>
-          <Text style={styles.lookingFor} numberOfLines={2}>
-            {job.lookingFor}
-          </Text>
-          <Text style={styles.time}>{relativeTime(job.createdAt)}</Text>
-        </Pressable>
-      ))}
+      <GroupedSection header="Vagas abertas">
+        {items.map((job) => (
+          <ListRow
+            key={job.id}
+            title={job.title}
+            subtitle={job.lookingFor}
+            meta={relativeTime(job.createdAt)}
+            onPress={() => router.push(`/vaga/${job.id}` as Href)}
+          />
+        ))}
+      </GroupedSection>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.xl,
-    gap: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.tabBarClearance,
     flexGrow: 1,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -104,44 +103,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.xl,
+    backgroundColor: colors.background,
   },
   loadingText: {
-    fontFamily: fonts.body,
-    color: colors.muted,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  cardPressed: {
-    opacity: 0.9,
-    borderColor: colors.accent,
-  },
-  title: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 17,
-    color: colors.ink,
-  },
-  lookingFor: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-  },
-  time: {
-    fontFamily: fonts.body,
-    fontSize: 13,
+    ...type.subhead,
     color: colors.muted,
   },
   errorBox: {
     gap: spacing.sm,
     padding: spacing.lg,
     backgroundColor: colors.errorSoft,
-    borderRadius: radius.input,
+    borderRadius: radius.group,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   error: {
     fontFamily: fonts.body,

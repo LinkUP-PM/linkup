@@ -1,12 +1,14 @@
-import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, type Href } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import type { Role } from "@linkup/shared";
 import { ROLE_LABELS } from "@linkup/shared";
-import { setRole } from "../src/lib/api";
-import { homeHrefForRole, setStoredRole } from "../src/lib/role";
-import { colors, fonts, radius, spacing } from "../src/theme/tokens";
+import { Enter } from "../src/components/Enter";
+import { GroupedSection } from "../src/components/GroupedSection";
+import { loginHrefForRole } from "../src/lib/role";
+import { enter } from "../src/theme/motion";
+import { colors, fonts, spacing, type } from "../src/theme/tokens";
 
 const OPTIONS: { role: Role; description: string }[] = [
   {
@@ -26,21 +28,6 @@ const OPTIONS: { role: Role; description: string }[] = [
 export default function PortaScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [busy, setBusy] = useState<Role | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function choose(role: Role) {
-    setError(null);
-    setBusy(role);
-    try {
-      await setRole(role);
-      await setStoredRole(role);
-      router.replace(homeHrefForRole(role) as Href);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar o papel.");
-      setBusy(null);
-    }
-  }
 
   return (
     <View
@@ -52,34 +39,41 @@ export default function PortaScreen() {
         },
       ]}
     >
-      <Text style={styles.brand}>LinkUP</Text>
-      <Text style={styles.title}>Como você entra?</Text>
-      <Text style={styles.body}>
-        Escolha uma porta. Este aparelho fica com esse papel — sem login.
-      </Text>
+      <Pressable
+        onPress={() => router.replace("/home" as Href)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Voltar"
+        style={({ pressed }) => [styles.back, pressed && styles.rowPressed]}
+      >
+        <Ionicons name="chevron-back" size={28} color={colors.accent} />
+      </Pressable>
 
-      <View style={styles.options}>
-        {OPTIONS.map((option) => {
-          const selected = busy === option.role;
-          return (
+      <Enter variant="fadeUp" delay={enter.delays.header}>
+        <Text style={styles.brand}>LinkUP</Text>
+        <Text style={styles.title}>Como você entra?</Text>
+        <Text style={styles.body}>
+          Escolha a porta do seu papel. Em seguida entre ou crie a conta.
+        </Text>
+      </Enter>
+
+      <Enter variant="fadeUp" delay={enter.delays.list}>
+        <GroupedSection header="Papéis">
+          {OPTIONS.map((option) => (
             <Pressable
               key={option.role}
-              disabled={busy !== null}
-              onPress={() => void choose(option.role)}
-              style={({ pressed }) => [
-                styles.card,
-                pressed && styles.cardPressed,
-                selected && styles.cardSelected,
-              ]}
+              onPress={() => router.push(loginHrefForRole(option.role) as Href)}
+              style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
             >
-              <Text style={styles.cardTitle}>{ROLE_LABELS[option.role]}</Text>
-              <Text style={styles.cardBody}>{option.description}</Text>
+              <View style={styles.rowText}>
+                <Text style={styles.cardTitle}>{ROLE_LABELS[option.role]}</Text>
+                <Text style={styles.cardBody}>{option.description}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.tertiary} />
             </Pressable>
-          );
-        })}
-      </View>
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+          ))}
+        </GroupedSection>
+      </Enter>
     </View>
   );
 }
@@ -87,66 +81,57 @@ export default function PortaScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: spacing.xl,
     backgroundColor: colors.background,
   },
+  back: {
+    alignSelf: "flex-start",
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.lg,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: "center",
+  },
   brand: {
+    ...type.footnote,
     fontFamily: fonts.bodySemi,
-    fontSize: 13,
     color: colors.accent,
     letterSpacing: 1.2,
     textTransform: "uppercase",
     marginBottom: spacing.sm,
+    marginHorizontal: spacing.lg,
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 32,
-    lineHeight: 38,
+    ...type.largeTitle,
     color: colors.ink,
+    marginHorizontal: spacing.lg,
   },
   body: {
-    fontFamily: fonts.body,
-    fontSize: 16,
-    lineHeight: 24,
+    ...type.body,
     color: colors.muted,
     marginTop: spacing.md,
     marginBottom: spacing.xl,
+    marginHorizontal: spacing.lg,
   },
-  options: {
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
     gap: spacing.md,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  cardPressed: {
-    borderColor: colors.accent,
-    backgroundColor: colors.accentSoft,
-  },
-  cardSelected: {
-    borderColor: colors.accent,
+  rowPressed: {
     opacity: 0.7,
   },
+  rowText: {
+    flex: 1,
+    gap: spacing.xs,
+  },
   cardTitle: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 18,
+    ...type.headline,
     color: colors.ink,
   },
   cardBody: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    lineHeight: 22,
+    ...type.footnote,
     color: colors.muted,
-  },
-  error: {
-    marginTop: spacing.lg,
-    fontFamily: fonts.body,
-    fontSize: 14,
-    color: colors.error,
-    lineHeight: 20,
   },
 });

@@ -4,12 +4,16 @@ import multipart from "@fastify/multipart";
 import { config } from "./config.js";
 import { analysesRoutes } from "./routes/analyses.js";
 import { applicationsRoutes } from "./routes/applications.js";
+import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { jobsRoutes } from "./routes/jobs.js";
 import { meRoutes } from "./routes/me.js";
 
 const CONTRACT_CODES = new Set([
-  "DEVICE_ID_REQUIRED",
+  "UNAUTHORIZED",
+  "INVALID_CREDENTIALS",
+  "ROLE_MISMATCH",
+  "EMAIL_TAKEN",
   "INVALID_FILE",
   "FILE_TOO_LARGE",
   "TEXT_NOT_EXTRACTABLE",
@@ -17,11 +21,11 @@ const CONTRACT_CODES = new Set([
   "AI_UNAVAILABLE",
   "AI_INVALID_RESPONSE",
   "NOT_FOUND",
-  "ROLE_ALREADY_SET",
   "ROLE_REQUIRED",
   "FORBIDDEN",
   "ALREADY_APPLIED",
   "INVALID_BODY",
+  "INVALID_TRANSITION",
   "INTERNAL",
 ]);
 
@@ -59,6 +63,7 @@ export async function buildApp() {
   });
 
   await app.register(healthRoutes);
+  await app.register(authRoutes);
   await app.register(meRoutes);
   await app.register(jobsRoutes);
   await app.register(applicationsRoutes);

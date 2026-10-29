@@ -11,9 +11,11 @@ import {
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { Job } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
+import { GroupedSection } from "../../src/components/GroupedSection";
+import { ListRow } from "../../src/components/ListRow";
 import { listJobs } from "../../src/lib/api";
 import { relativeTime } from "../../src/lib/relativeTime";
-import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
+import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
 
 export default function EmployerHomeScreen() {
   const router = useRouter();
@@ -66,8 +68,6 @@ export default function EmployerHomeScreen() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
-      <Text style={styles.subtitle}>Vagas deste aparelho</Text>
-
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.error}>{error}</Text>
@@ -77,24 +77,30 @@ export default function EmployerHomeScreen() {
         </View>
       ) : null}
 
-      {items.map((job) => (
-        <View key={job.id} style={styles.card}>
-          <Text style={styles.title}>{job.title}</Text>
-          <Text style={styles.lookingFor} numberOfLines={3}>
-            {job.lookingFor}
-          </Text>
-          <Text style={styles.time}>{relativeTime(job.createdAt)}</Text>
-        </View>
-      ))}
+      <GroupedSection header="Vagas deste aparelho">
+        {items.map((job) => {
+          const pending = job.pendingDecisionCount ?? 0;
+          return (
+            <ListRow
+              key={job.id}
+              title={job.title}
+              subtitle={job.lookingFor}
+              meta={`${relativeTime(job.createdAt)} · ${pending === 0 ? "Sem decisões pendentes" : `${pending} para decidir`}`}
+              onPress={() => router.push(`/(employer)/indicados/${job.id}` as Href)}
+            />
+          );
+        })}
+      </GroupedSection>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.xl,
-    gap: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.tabBarClearance,
     flexGrow: 1,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -102,46 +108,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     padding: spacing.xl,
+    backgroundColor: colors.background,
   },
   loadingText: {
-    fontFamily: fonts.body,
-    color: colors.muted,
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.muted,
-    marginBottom: spacing.xs,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  title: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 17,
-    color: colors.ink,
-  },
-  lookingFor: {
-    fontFamily: fonts.body,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.muted,
-  },
-  time: {
-    fontFamily: fonts.body,
-    fontSize: 13,
+    ...type.subhead,
     color: colors.muted,
   },
   errorBox: {
     gap: spacing.sm,
     padding: spacing.lg,
     backgroundColor: colors.errorSoft,
-    borderRadius: radius.input,
+    borderRadius: radius.group,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   error: {
     fontFamily: fonts.body,

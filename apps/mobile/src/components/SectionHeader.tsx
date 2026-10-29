@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors, fonts, radius, spacing } from "../theme/tokens";
+import { colors, radius, spacing, type } from "../theme/tokens";
 
 type Tone = "strengths" | "attention" | "suggestions" | "neutral";
 
@@ -7,7 +7,7 @@ const TONE: Record<Tone, { color: string; background: string }> = {
   strengths: { color: colors.strengths, background: colors.strengthsSoft },
   attention: { color: colors.attention, background: colors.attentionSoft },
   suggestions: { color: colors.suggestions, background: colors.suggestionsSoft },
-  neutral: { color: colors.ink, background: colors.border },
+  neutral: { color: colors.ink, background: colors.surfaceElevated },
 };
 
 type Props = {
@@ -45,12 +45,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   badgeText: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 13,
+    ...type.footnote,
+    fontFamily: type.headline.fontFamily,
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 22,
+    ...type.title2,
     color: colors.ink,
   },
 });

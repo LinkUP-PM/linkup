@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import { Card } from "./Card";
-import { colors, fonts, radius, spacing } from "../theme/tokens";
+import { colors, fonts, radius, spacing, type } from "../theme/tokens";
 
 type Props = {
   title: string;
@@ -61,23 +61,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   title: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    ...type.headline,
     color: colors.ink,
   },
   summary: {
-    fontFamily: fonts.body,
-    fontSize: 15,
+    ...type.subhead,
     color: colors.muted,
-    lineHeight: 22,
   },
   group: {
     gap: spacing.sm,
     marginTop: spacing.xs,
   },
   groupLabel: {
+    ...type.caption1,
     fontFamily: fonts.bodySemi,
-    fontSize: 12,
     color: colors.muted,
     textTransform: "uppercase",
     letterSpacing: 0.6,

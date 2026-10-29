@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, StyleSheet, Text, View } from "react-native";
-import { colors, fonts, spacing } from "../theme/tokens";
+import { colors, radius, spacing, type } from "../theme/tokens";
 
 const STEPS = [
   "Lendo o PDF…",
@@ -42,7 +42,7 @@ export function AnalyzingOverlay({ visible }: Props) {
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(28, 25, 23, 0.45)",
+    backgroundColor: colors.scrim,
     alignItems: "center",
     justifyContent: "center",
     padding: spacing.xl,
@@ -50,22 +50,20 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 320,
-    backgroundColor: colors.background,
-    borderRadius: 24,
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.capsule,
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.xl,
     alignItems: "center",
     gap: spacing.md,
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 24,
+    ...type.title2,
     color: colors.ink,
     marginTop: spacing.sm,
   },
   step: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 16,
+    ...type.callout,
     color: colors.muted,
     textAlign: "center",
   },

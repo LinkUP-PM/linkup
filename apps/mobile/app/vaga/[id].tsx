@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
-import * as DocumentPicker from "expo-document-picker";
 import type { Job } from "@linkup/shared";
 import { AnalyzingOverlay } from "../../src/components/AnalyzingOverlay";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { applyToJob, getJob } from "../../src/lib/api";
+import { pickPdf } from "../../src/lib/pick-pdf";
 import { colors, fonts, spacing } from "../../src/theme/tokens";
 
 export default function JobDetailScreen() {
@@ -39,29 +39,20 @@ export default function JobDetailScreen() {
   async function pickAndApply() {
     if (!id) return;
     setError(null);
-    let picked: Awaited<ReturnType<typeof DocumentPicker.getDocumentAsync>>;
+    let file: Awaited<ReturnType<typeof pickPdf>>;
     try {
-      picked = await DocumentPicker.getDocumentAsync({
-        type: "application/pdf",
-        copyToCacheDirectory: true,
-      });
+      file = await pickPdf();
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Não foi possível abrir o seletor de arquivos.",
       );
       return;
     }
-    if (picked.canceled || !picked.assets[0]) return;
+    if (!file) return;
 
-    const file = picked.assets[0];
     setBusy(true);
     try {
-      const application = await applyToJob(id, {
-        uri: file.uri,
-        name: file.name ?? "curriculo.pdf",
-        mimeType: file.mimeType ?? "application/pdf",
-        file: file.file,
-      });
+      const application = await applyToJob(id, file);
       router.replace(`/candidatura/${application.id}` as Href);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar a candidatura.");
@@ -117,14 +108,16 @@ export default function JobDetailScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.xl,
+    padding: spacing.lg,
     gap: spacing.lg,
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     padding: spacing.xl,
+    backgroundColor: colors.background,
   },
   title: {
     fontFamily: fonts.display,
@@ -134,11 +127,14 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    padding: spacing.lg,
   },
   label: {
     fontFamily: fonts.bodySemi,
     fontSize: 13,
-    color: colors.accent,
+    color: colors.muted,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },

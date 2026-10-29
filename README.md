@@ -59,10 +59,16 @@ API:
 npm run dev:api
 ```
 
-Mobile:
+Mobile (Expo Go ou emulador):
 
 ```bash
 npm run dev:mobile
+```
+
+Navegador:
+
+```bash
+npm run dev:web
 ```
 
 Smoke da API (com o servidor no ar):
@@ -70,6 +76,16 @@ Smoke da API (com o servidor no ar):
 ```bash
 npm run smoke:api
 ```
+
+## APK Android (banco no celular)
+
+O app instalável grava tudo em SQLite no aparelho e não precisa da API ligada. Fluxo: criar as três contas no mesmo celular e usar **Sair** para trocar de papel.
+
+1. Dispare o workflow **Android APK** (tag `v0.1.0` ou *Run workflow*)
+2. Na [Release](https://github.com/LinkUP-PM/linkup/releases), baixe `linkup.apk`
+3. No Android, permita instalar de origem desconhecida e abra o arquivo
+
+Detalhes: [`docs/adr/0006-apk-sqlite-local.md`](docs/adr/0006-apk-sqlite-local.md).
 
 ## Documenta??o
 

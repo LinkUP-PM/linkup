@@ -1,19 +1,31 @@
 import type { FastifyInstance } from "fastify";
-import type { ApplicationSummary, Job } from "@linkup/shared";
+import type { Job } from "@linkup/shared";
 import { prisma } from "../lib/prisma.js";
 import { httpError, requireRole, requireUser } from "../lib/http.js";
 import { readPdfUpload } from "../lib/pdf-upload.js";
 import { runAnalysisPipeline } from "../services/analysis-pipeline.js";
+import { toApplicationSummary } from "./applications.js";
 
-function toJob(row: {
-  id: string;
-  title: string;
-  description: string;
-  lookingFor: string;
-  employerId: string;
-  createdAt: Date;
-}): Job {
-  return {
+type JobCounts = {
+  queueCount?: number;
+  pendingDecisionCount?: number;
+  forwardedCount?: number;
+  adjustmentCount?: number;
+  closedCount?: number;
+};
+
+function toJob(
+  row: {
+    id: string;
+    title: string;
+    description: string;
+    lookingFor: string;
+    employerId: string;
+    createdAt: Date;
+  },
+  counts?: JobCounts,
+): Job {
+  const job: Job = {
     id: row.id,
     title: row.title,
     description: row.description,
@@ -21,26 +33,22 @@ function toJob(row: {
     employerId: row.employerId,
     createdAt: row.createdAt.toISOString(),
   };
-}
-
-function toApplicationSummary(row: {
-  id: string;
-  jobId: string;
-  status: ApplicationSummary["status"];
-  analysisId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  job: { title: string };
-}): ApplicationSummary {
-  return {
-    id: row.id,
-    jobId: row.jobId,
-    jobTitle: row.job.title,
-    status: row.status,
-    analysisId: row.analysisId,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+  if (counts?.queueCount !== undefined) {
+    job.queueCount = counts.queueCount;
+  }
+  if (counts?.pendingDecisionCount !== undefined) {
+    job.pendingDecisionCount = counts.pendingDecisionCount;
+  }
+  if (counts?.forwardedCount !== undefined) {
+    job.forwardedCount = counts.forwardedCount;
+  }
+  if (counts?.adjustmentCount !== undefined) {
+    job.adjustmentCount = counts.adjustmentCount;
+  }
+  if (counts?.closedCount !== undefined) {
+    job.closedCount = counts.closedCount;
+  }
+  return job;
 }
 
 function trimRequired(value: unknown, field: string): string {
@@ -48,6 +56,43 @@ function trimRequired(value: unknown, field: string): string {
     throw httpError(400, "INVALID_BODY", `Informe ${field} com pelo menos 3 caracteres.`);
   }
   return value.trim();
+}
+
+type StatusCounts = {
+  submitted: number;
+  forwarded: number;
+  adjustment: number;
+  closed: number;
+};
+
+async function countsForJobs(jobIds: string[]): Promise<Map<string, StatusCounts>> {
+  const map = new Map<string, StatusCounts>();
+  for (const id of jobIds) {
+    map.set(id, { submitted: 0, forwarded: 0, adjustment: 0, closed: 0 });
+  }
+  if (jobIds.length === 0) return map;
+
+  const groups = await prisma.application.groupBy({
+    by: ["jobId", "status"],
+    where: { jobId: { in: jobIds } },
+    _count: { _all: true },
+  });
+
+  for (const row of groups) {
+    const entry = map.get(row.jobId);
+    if (!entry) continue;
+    if (row.status === "SUBMITTED") entry.submitted = row._count._all;
+    else if (row.status === "FORWARDED") entry.forwarded = row._count._all;
+    else if (row.status === "ADJUSTMENT_REQUESTED") entry.adjustment = row._count._all;
+    else if (
+      row.status === "DISCARDED" ||
+      row.status === "ACCEPTED" ||
+      row.status === "REJECTED"
+    ) {
+      entry.closed += row._count._all;
+    }
+  }
+  return map;
 }
 
 export async function jobsRoutes(app: FastifyInstance) {
@@ -86,7 +131,30 @@ export async function jobsRoutes(app: FastifyInstance) {
       orderBy: { createdAt: "desc" },
     });
 
-    return { items: rows.map(toJob) };
+    const counts = await countsForJobs(rows.map((r) => r.id));
+
+    return {
+      items: rows.map((row) => {
+        const c = counts.get(row.id) ?? {
+          submitted: 0,
+          forwarded: 0,
+          adjustment: 0,
+          closed: 0,
+        };
+        if (user.role === "RECRUITER") {
+          return toJob(row, {
+            queueCount: c.submitted,
+            forwardedCount: c.forwarded,
+            adjustmentCount: c.adjustment,
+            closedCount: c.closed,
+          });
+        }
+        if (user.role === "EMPLOYER") {
+          return toJob(row, { pendingDecisionCount: c.forwarded });
+        }
+        return toJob(row);
+      }),
+    };
   });
 
   app.get("/jobs/:id", async (request) => {
@@ -107,7 +175,84 @@ export async function jobsRoutes(app: FastifyInstance) {
       throw httpError(404, "NOT_FOUND", "Vaga não encontrada.");
     }
 
+    const counts = await countsForJobs([row.id]);
+    const c = counts.get(row.id) ?? {
+      submitted: 0,
+      forwarded: 0,
+      adjustment: 0,
+      closed: 0,
+    };
+    if (user.role === "RECRUITER") {
+      return toJob(row, {
+        queueCount: c.submitted,
+        forwardedCount: c.forwarded,
+        adjustmentCount: c.adjustment,
+        closedCount: c.closed,
+      });
+    }
+    if (user.role === "EMPLOYER") {
+      return toJob(row, { pendingDecisionCount: c.forwarded });
+    }
     return toJob(row);
+  });
+
+  app.get("/jobs/:id/applications", async (request) => {
+    const user = await requireUser(request);
+    if (!user.role) {
+      throw httpError(403, "ROLE_REQUIRED", "Escolha um papel antes de continuar.");
+    }
+    if (user.role === "CANDIDATE") {
+      throw httpError(403, "FORBIDDEN", "Esta ação não está disponível para o seu papel.");
+    }
+
+    const { id: jobId } = request.params as { id: string };
+
+    if (user.role === "EMPLOYER") {
+      const job = await prisma.job.findFirst({
+        where: { id: jobId, employerId: user.id },
+      });
+      if (!job) {
+        throw httpError(404, "NOT_FOUND", "Vaga não encontrada.");
+      }
+
+      const rows = await prisma.application.findMany({
+        where: {
+          jobId,
+          status: { notIn: ["SUBMITTED", "DISCARDED"] },
+        },
+        orderBy: { updatedAt: "desc" },
+        include: { job: { select: { title: true, employerId: true } } },
+      });
+
+      return {
+        items: rows.map((row) => toApplicationSummary(row)),
+      };
+    }
+
+    // RECRUITER
+    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    if (!job) {
+      throw httpError(404, "NOT_FOUND", "Vaga não encontrada.");
+    }
+
+    const rows = await prisma.application.findMany({
+      where: { jobId },
+      orderBy: { createdAt: "desc" },
+      include: {
+        job: { select: { title: true, employerId: true } },
+        candidate: { select: { email: true } },
+        analysis: { select: { resultJson: true } },
+      },
+    });
+
+    return {
+      items: rows.map((row) =>
+        toApplicationSummary(row, {
+          includeDecisionMessage: true,
+          recruiterPreview: true,
+        }),
+      ),
+    };
   });
 
   app.post("/jobs/:id/applications", async (request, reply) => {
@@ -144,7 +289,7 @@ export async function jobsRoutes(app: FastifyInstance) {
           analysisId: analysis.id,
           status: "SUBMITTED",
         },
-        include: { job: { select: { title: true } } },
+        include: { job: { select: { title: true, employerId: true } } },
       });
 
       return reply.code(201).send(toApplicationSummary(application));

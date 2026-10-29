@@ -1,9 +1,7 @@
 import type { Role } from "@linkup/shared";
 import type { FastifyRequest } from "fastify";
 import { prisma } from "./prisma.js";
-
-const DEVICE_ID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import { hashToken } from "./session.js";
 
 const ROLES = new Set<Role>(["CANDIDATE", "RECRUITER", "EMPLOYER"]);
 
@@ -18,21 +16,33 @@ export function isRole(value: unknown): value is Role {
   return typeof value === "string" && ROLES.has(value as Role);
 }
 
+export function extractBearerToken(request: FastifyRequest): string | null {
+  const header = request.headers.authorization;
+  if (typeof header !== "string") return null;
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim());
+  if (!match?.[1]) return null;
+  return match[1].trim() || null;
+}
+
 export async function requireUser(request: FastifyRequest) {
-  const deviceId = request.headers["x-device-id"];
-  if (typeof deviceId !== "string" || !DEVICE_ID_RE.test(deviceId.trim())) {
-    throw httpError(
-      400,
-      "DEVICE_ID_REQUIRED",
-      "Informe o header X-Device-Id com um UUID válido.",
-    );
+  const token = extractBearerToken(request);
+  if (!token) {
+    throw httpError(401, "UNAUTHORIZED", "Informe o header Authorization: Bearer <token>.");
   }
 
-  return prisma.user.upsert({
-    where: { deviceId: deviceId.trim() },
-    update: {},
-    create: { deviceId: deviceId.trim() },
+  const session = await prisma.session.findUnique({
+    where: { tokenHash: hashToken(token) },
+    include: { user: true },
   });
+
+  if (!session || session.expiresAt.getTime() <= Date.now()) {
+    if (session) {
+      await prisma.session.delete({ where: { id: session.id } }).catch(() => undefined);
+    }
+    throw httpError(401, "UNAUTHORIZED", "Sessão inválida ou expirada. Entre de novo.");
+  }
+
+  return session.user;
 }
 
 export async function requireRole(request: FastifyRequest, allowed: Role | Role[]) {

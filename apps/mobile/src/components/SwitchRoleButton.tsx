@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
 import { useRouter, type Href } from "expo-router";
-import { clearRole } from "../lib/api";
-import { clearStoredRole } from "../lib/role";
+import { logout } from "../lib/api";
 import { colors, fonts, spacing } from "../theme/tokens";
 
 type Props = {
   label?: string;
 };
 
-export function SwitchRoleButton({ label = "Trocar papel" }: Props) {
+export function SwitchRoleButton({ label = "Sair" }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -17,13 +16,9 @@ export function SwitchRoleButton({ label = "Trocar papel" }: Props) {
     if (busy) return;
     setBusy(true);
     try {
-      await clearRole();
-      await clearStoredRole();
-      router.replace("/porta" as Href);
-    } catch {
-      await clearStoredRole();
-      router.replace("/porta" as Href);
+      await logout();
     } finally {
+      router.replace("/porta" as Href);
       setBusy(false);
     }
   }

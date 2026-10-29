@@ -1,26 +1,32 @@
+import { Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { SwitchRoleButton } from "../../src/components/SwitchRoleButton";
-import { colors, fonts } from "../../src/theme/tokens";
+import { TabBarBackground } from "../../src/components/TabBarBackground";
+import { colors, type } from "../../src/theme/tokens";
+import { floatingTabBarStyle, screenHeaderOptions } from "../../src/theme/navigation";
 
 export default function CandidateTabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerShadowVisible: false,
-        headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { fontFamily: fonts.bodySemi, fontSize: 17, color: colors.ink },
+        ...screenHeaderOptions,
         headerRight: () => <SwitchRoleButton />,
         tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: {
-          backgroundColor: colors.background,
-          borderTopColor: colors.border,
-          paddingTop: 4,
-        },
+        tabBarInactiveTintColor: colors.tertiary,
+        tabBarStyle: floatingTabBarStyle,
+        tabBarBackground: () => <TabBarBackground />,
         tabBarLabelStyle: {
-          fontFamily: fonts.bodySemi,
-          fontSize: 12,
+          ...type.tabLabel,
+        },
+        sceneStyle: { backgroundColor: colors.background },
+      }}
+      screenListeners={{
+        tabPress: () => {
+          if (Platform.OS !== "web") {
+            void Haptics.selectionAsync();
+          }
         },
       }}
     >
