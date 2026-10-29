@@ -37,6 +37,11 @@ function ensureSigningFiles(projectRoot, androidAppDir) {
   fs.writeFileSync(destProps, PROPERTIES, "utf8");
 }
 
+/** True only when signingConfigs already defines a release entry (not buildTypes.release). */
+function hasReleaseSigningConfig(contents) {
+  return contents.includes("keyAlias keystoreProperties['keyAlias']");
+}
+
 function applySigningBlock(buildGradle) {
   let next = buildGradle;
 
@@ -51,7 +56,7 @@ if (keystorePropertiesFile.exists()) {
     next = next.replace(/android\s*\{/, `${header}android {`);
   }
 
-  if (!/signingConfigs\s*\{[\s\S]*?\brelease\s*\{/.test(next)) {
+  if (!hasReleaseSigningConfig(next)) {
     if (/signingConfigs\s*\{/.test(next)) {
       next = next.replace(
         /signingConfigs\s*\{/,
@@ -65,17 +70,18 @@ if (keystorePropertiesFile.exists()) {
     }
   }
 
-  if (!next.includes("signingConfig signingConfigs.release")) {
-    next = next.replace(
-      /buildTypes\s*\{([\s\S]*?)release\s*\{/,
-      (match) =>
-        match.replace(
-          /release\s*\{/,
-          `release {
-            signingConfig signingConfigs.release`,
-        ),
-    );
-  }
+  // Prefer our release keystore over Expo's default signingConfigs.debug on release.
+  next = next.replace(
+    /buildTypes\s*\{([\s\S]*?)release\s*\{([\s\S]*?)\n        \}/,
+    (full, beforeRelease, releaseBody) => {
+      const cleaned = releaseBody
+        .replace(/\n\s*signingConfig signingConfigs\.(debug|release)/g, "")
+        .replace(/^\s*signingConfig signingConfigs\.(debug|release)\s*\n?/gm, "");
+      return `buildTypes {${beforeRelease}release {
+            signingConfig signingConfigs.release${cleaned}
+        }`;
+    },
+  );
 
   return next;
 }
