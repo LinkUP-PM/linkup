@@ -79,13 +79,14 @@ npm run smoke:api
 
 ## APK Android (banco no celular)
 
-O app instalável grava tudo em SQLite no aparelho e não precisa da API ligada. Fluxo: criar as três contas no mesmo celular e usar **Sair** para trocar de papel.
+O app instalável grava tudo em SQLite no aparelho e não precisa da API ligada. Na primeira abertura já existem contas, vagas e candidaturas de demonstração. Use **Sair** para trocar de papel.
 
-1. Dispare o workflow **Android APK** (tag `v0.1.0` ou *Run workflow*)
-2. Na [Release](https://github.com/LinkUP-PM/linkup/releases), baixe `linkup.apk`
+1. Dispare o workflow **Android APK** (tag `v*` ou *Run workflow*) — o APK vai para a [Release](https://github.com/LinkUP-PM/linkup/releases)
+2. Baixe `linkup.apk` (Release `v0.1.0` no disparo manual)
 3. No Android, permita instalar de origem desconhecida e abra o arquivo
+4. Entre com uma conta demo (senha `demo1234`): `contratante@demo.linkup`, `recrutador@demo.linkup` ou `ana.costa@demo.linkup`
 
-Detalhes: [`docs/adr/0006-apk-sqlite-local.md`](docs/adr/0006-apk-sqlite-local.md).
+Detalhes: [`docs/adr/0006-apk-sqlite-local.md`](docs/adr/0006-apk-sqlite-local.md) e [`docs/demo.md`](docs/demo.md).
 
 ## Documenta??o
 
