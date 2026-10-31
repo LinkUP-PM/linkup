@@ -2,11 +2,20 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { config } from "./config.js";
+import { agendaRoutes } from "./routes/agenda.js";
 import { analysesRoutes } from "./routes/analyses.js";
+import { applicationsRoutes } from "./routes/applications.js";
+import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
+import { interviewsRoutes } from "./routes/interviews.js";
+import { jobsRoutes } from "./routes/jobs.js";
+import { meRoutes } from "./routes/me.js";
 
 const CONTRACT_CODES = new Set([
-  "DEVICE_ID_REQUIRED",
+  "UNAUTHORIZED",
+  "INVALID_CREDENTIALS",
+  "ROLE_MISMATCH",
+  "EMAIL_TAKEN",
   "INVALID_FILE",
   "FILE_TOO_LARGE",
   "TEXT_NOT_EXTRACTABLE",
@@ -14,6 +23,12 @@ const CONTRACT_CODES = new Set([
   "AI_UNAVAILABLE",
   "AI_INVALID_RESPONSE",
   "NOT_FOUND",
+  "ROLE_REQUIRED",
+  "FORBIDDEN",
+  "ALREADY_APPLIED",
+  "INVALID_BODY",
+  "INVALID_TRANSITION",
+  "INTERNAL",
 ]);
 
 export async function buildApp() {
@@ -40,7 +55,7 @@ export async function buildApp() {
     const safeCode = CONTRACT_CODES.has(code)
       ? code
       : statusCode >= 500
-        ? "AI_UNAVAILABLE"
+        ? "INTERNAL"
         : code;
 
     reply.code(statusCode).send({
@@ -50,6 +65,12 @@ export async function buildApp() {
   });
 
   await app.register(healthRoutes);
+  await app.register(authRoutes);
+  await app.register(meRoutes);
+  await app.register(jobsRoutes);
+  await app.register(applicationsRoutes);
+  await app.register(interviewsRoutes);
+  await app.register(agendaRoutes);
   await app.register(analysesRoutes);
   return app;
 }

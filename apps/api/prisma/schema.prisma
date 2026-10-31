@@ -15,12 +15,44 @@ enum AnalysisStatus {
   FAILED
 }
 
+enum Role {
+  CANDIDATE
+  RECRUITER
+  EMPLOYER
+}
+
+enum ApplicationStatus {
+  SUBMITTED
+  DISCARDED
+  FORWARDED
+  ADJUSTMENT_REQUESTED
+  ACCEPTED
+  REJECTED
+}
+
 model User {
-  id        String     @id @default(cuid())
-  deviceId  String     @unique
-  analyses  Analysis[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String
+  role         Role
+  analyses     Analysis[]
+  jobs         Job[]         @relation("EmployerJobs")
+  applications Application[] @relation("CandidateApplications")
+  sessions     Session[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Analysis {
@@ -34,8 +66,112 @@ model Analysis {
   resultJson    Json?
   errorMessage  String?
   modelUsed     String?
+  application   Application?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@index([userId, createdAt])
+}
+
+model Job {
+  id           String        @id @default(cuid())
+  title        String
+  description  String
+  lookingFor   String
+  employerId   String
+  employer     User          @relation("EmployerJobs", fields: [employerId], references: [id], onDelete: Cascade)
+  applications Application[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([employerId, createdAt])
+  @@index([createdAt])
+}
+
+enum RecruiterNoteAction {
+  NOTE
+  FORWARD
+  DISCARD
+}
+
+enum InterviewStatus {
+  PROPOSED
+  ACCEPTED
+  DECLINED
+}
+
+enum ApplicationEventType {
+  SUBMITTED
+  RESUBMITTED
+  FORWARDED
+  DISCARDED
+  ADJUSTMENT_REQUESTED
+  ACCEPTED
+  REJECTED
+  INTERVIEW_PROPOSED
+  INTERVIEW_ACCEPTED
+  INTERVIEW_DECLINED
+}
+
+model Application {
+  id               String                @id @default(cuid())
+  jobId            String
+  job              Job                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  candidateId      String
+  candidate        User                  @relation("CandidateApplications", fields: [candidateId], references: [id], onDelete: Cascade)
+  analysisId       String                @unique
+  analysis         Analysis              @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  status           ApplicationStatus     @default(SUBMITTED)
+  recruiterNote    String?
+  decisionMessage  String?
+  submissionCount  Int                   @default(1)
+  /** JSON array of RecruiterTag strings; recruiter-only. */
+  recruiterTags    Json                  @default("[]")
+  noteEntries      RecruiterNoteEntry[]
+  interviews       Interview[]
+  events           ApplicationEvent[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@unique([jobId, candidateId])
+  @@index([candidateId, createdAt])
+  @@index([jobId, status])
+  @@index([status, createdAt])
+}
+
+model ApplicationEvent {
+  id            String               @id @default(cuid())
+  applicationId String
+  application   Application          @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          ApplicationEventType
+  /** Instant shown on the calendar (process moment or interview scheduledAt). */
+  at            DateTime
+  createdAt     DateTime             @default(now())
+
+  @@index([applicationId, at])
+  @@index([at])
+}
+
+model RecruiterNoteEntry {
+  id            String              @id @default(cuid())
+  applicationId String
+  application   Application         @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  text          String
+  action        RecruiterNoteAction
+  createdAt     DateTime            @default(now())
+
+  @@index([applicationId, createdAt])
+}
+
+model Interview {
+  id            String          @id @default(cuid())
+  applicationId String
+  application   Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledAt   DateTime
+  status        InterviewStatus @default(PROPOSED)
+  createdAt     DateTime        @default(now())
+  respondedAt   DateTime?
+
+  @@index([applicationId, createdAt])
+  @@index([status, scheduledAt])
 }

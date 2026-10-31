@@ -10,7 +10,7 @@ Upload → Extração → Análise → Feedback → Histórico
 
 ```mermaid
 flowchart LR
-  Mobile["App Expo"] -->|PDF + deviceId| API["API Fastify"]
+  Mobile["App Expo"] -->|PDF + Bearer| API["API Fastify"]
   API --> PDF["Extração de texto"]
   API --> IA["OpenAI / mock"]
   API --> DB[(PostgreSQL)]
@@ -37,15 +37,9 @@ docs/           Escopo, ADRs, contratos HTTP e prompt
 
 Mobile e API **não** inventam o formato do feedback. Os dois importam `@linkup/shared`.
 
-## Autenticação (mínima)
+## Autenticação
 
-Não há login. O app gera um `deviceId` no primeiro uso e envia o header:
-
-```
-X-Device-Id: <uuid>
-```
-
-A API cria ou reutiliza o usuário por esse identificador. Ver [ADR 0002](adr/0002-autenticacao-simples.md).
+Conta com e-mail, senha e papel fixo (definido na tela de cadastro). Sessão opaca via `Authorization: Bearer <token>`. Ver [ADR 0005](adr/0005-login-por-papel.md).
 
 ## Endpoints mínimos
 
@@ -54,8 +48,23 @@ Ver contrato completo em [contracts/api.md](contracts/api.md).
 | Método | Caminho | Papel |
 | --- | --- | --- |
 | `GET` | `/health` | Liveness |
+| `POST` | `/auth/register` | Criar conta |
+| `POST` | `/auth/login` | Entrar |
+| `DELETE` | `/auth/session` | Sair |
+| `GET` | `/me` | Conta da sessão |
+| `POST` | `/jobs` | Contratante abre vaga |
+| `GET` | `/jobs` | Lista conforme o papel (com contagens) |
+| `GET` | `/jobs/:id` | Detalhe da vaga |
+| `GET` | `/jobs/:id/applications` | Fila (recrutador) ou indicados (contratante) |
+| `POST` | `/jobs/:id/applications` | Candidato envia PDF |
+| `GET` | `/applications` | Candidaturas do candidato |
+| `GET` | `/applications/:id` | Detalhe / dossiê conforme o papel |
+| `POST` | `/applications/:id/discard` | Recrutador descarta |
+| `POST` | `/applications/:id/forward` | Recrutador encaminha |
+| `POST` | `/applications/:id/decision` | Contratante decide |
+| `POST` | `/applications/:id/resubmit` | Candidato reenvia PDF após ajuste |
 | `POST` | `/analyses` | Upload + análise |
-| `GET` | `/analyses` | Histórico do device |
+| `GET` | `/analyses` | Histórico da conta |
 | `GET` | `/analyses/:id` | Detalhe |
 
 ## Processamento de uma análise
@@ -101,6 +110,10 @@ Não persistimos o binário do PDF no MVP. O arquivo vive só na requisição.
 
 ## Deploy local
 
-PostgreSQL via `docker compose`. API em `localhost:3333`. Mobile via Expo Go ou emulador, apontando para a máquina host.
+PostgreSQL via `docker compose`. API em `localhost:3333`. Mobile via Expo Go ou emulador, apontando para a máquina host (útil para desenvolver a API).
+
+## APK no celular
+
+O artefato instalável **não** usa a API remota. Contas, vagas, candidaturas e análises ficam em SQLite no aparelho; a análise de currículo usa o modo local. Ver [ADR 0006](adr/0006-apk-sqlite-local.md).
 
 Resumo da stack: [ADR 0001](adr/0001-stack.md).

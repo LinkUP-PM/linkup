@@ -5,12 +5,34 @@
     "scheme": "linkup",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "android": {
+      "package": "com.linkup.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      }
+    },
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-font",
+      "expo-sqlite",
+      "./plugins/withAndroidReleaseSigning"
     ],
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/icon.png"
+    },
     "experiments": {
       "typedRoutes": true
     }

@@ -51,19 +51,248 @@ export type AnalysisDetail = AnalysisSummary & {
   errorMessage?: string;
 };
 
+export type Role = "CANDIDATE" | "RECRUITER" | "EMPLOYER";
+
+export type ApplicationStatus =
+  | "SUBMITTED"
+  | "DISCARDED"
+  | "FORWARDED"
+  | "ADJUSTMENT_REQUESTED"
+  | "ACCEPTED"
+  | "REJECTED";
+
+export type DecisionAction = "ACCEPT" | "REJECT" | "REQUEST_ADJUSTMENT";
+
+export type InterviewStatus = "PROPOSED" | "ACCEPTED" | "DECLINED";
+
+export type InterviewRespondAction = "ACCEPT" | "DECLINE";
+
+export type ApplicationEventType =
+  | "SUBMITTED"
+  | "RESUBMITTED"
+  | "FORWARDED"
+  | "DISCARDED"
+  | "ADJUSTMENT_REQUESTED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "INTERVIEW_PROPOSED"
+  | "INTERVIEW_ACCEPTED"
+  | "INTERVIEW_DECLINED";
+
+export type AgendaItem = {
+  id: string;
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  type: ApplicationEventType;
+  /** ISO — dia/hora em que o item aparece no calendário. */
+  date: string;
+  createdAt: string;
+  /** Recrutador e contratante. */
+  candidateEmail?: string;
+  interviewStatus?: InterviewStatus | null;
+};
+
+export type Interview = {
+  id: string;
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  scheduledAt: string;
+  status: InterviewStatus;
+  createdAt: string;
+  respondedAt?: string | null;
+  /** Recrutador e contratante: identifica o candidato. */
+  candidateEmail?: string;
+};
+
+export type Me = {
+  id: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+};
+
+/** Slot na biblioteca do candidato: 1 principal + até 3 versões focadas. */
+export type ResumeKind = "MAIN" | "FOCUSED";
+
+export type Resume = {
+  id: string;
+  kind: ResumeKind;
+  label: string;
+  fileName: string;
+  fileSizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const MAX_FOCUSED_RESUMES = 3;
+export const MAIN_RESUME_LABEL = "Currículo principal";
+
+export type AuthResponse = {
+  token: string;
+  user: Me;
+};
+
+export type Job = {
+  id: string;
+  title: string;
+  description: string;
+  lookingFor: string;
+  employerId: string;
+  createdAt: string;
+  /** Recrutador: candidaturas ainda na fila (SUBMITTED). */
+  queueCount?: number;
+  /** Contratante: encaminhadas aguardando decisão (FORWARDED). */
+  pendingDecisionCount?: number;
+  /** Recrutador: já encaminhadas (FORWARDED). */
+  forwardedCount?: number;
+  /** Recrutador: aguardando reenvio do candidato (ADJUSTMENT_REQUESTED). */
+  adjustmentCount?: number;
+  /** Recrutador: DISCARDED + ACCEPTED + REJECTED. */
+  closedCount?: number;
+};
+
+/** Tags internas do recrutador (só ele vê). Conjunto fixo do MVP. */
+export type RecruiterTag =
+  | "forte"
+  | "duvida"
+  | "perfil-senior"
+  | "comunicar-depois";
+
+export const RECRUITER_TAGS: readonly RecruiterTag[] = [
+  "forte",
+  "duvida",
+  "perfil-senior",
+  "comunicar-depois",
+] as const;
+
+export const RECRUITER_TAG_LABELS: Record<RecruiterTag, string> = {
+  forte: "Forte",
+  duvida: "Dúvida",
+  "perfil-senior": "Perfil sênior",
+  "comunicar-depois": "Comunicar depois",
+};
+
+export type RecruiterNoteAction = "NOTE" | "FORWARD" | "DISCARD";
+
+export type RecruiterNoteEntry = {
+  id: string;
+  text: string;
+  action: RecruiterNoteAction;
+  createdAt: string;
+};
+
+export type ApplicationSummary = {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  status: ApplicationStatus;
+  analysisId: string;
+  createdAt: string;
+  updatedAt: string;
+  decisionMessage?: string | null;
+  /** Recrutador (sempre) e contratante (agenda/entrevista). */
+  candidateEmail?: string;
+  /** Só aparece para o recrutador. 1 na primeira vez; incrementa no reenvio. */
+  submissionCount?: number;
+  /** Só aparece para o recrutador. Até 3 competências da análise. */
+  previewSkills?: string[];
+  /** Só aparece para o recrutador. Até 2 títulos de pontos fortes. */
+  previewStrengths?: string[];
+  /** Só aparece para o recrutador. Até 1 título de ponto de atenção. */
+  previewAttention?: string[];
+  /** Só aparece para o recrutador. Tags internas. */
+  recruiterTags?: RecruiterTag[];
+  /** Convite atual (PROPOSED ou ACCEPTED), se houver. */
+  interviewStatus?: InterviewStatus | null;
+  /** Data/hora do convite atual. */
+  interviewScheduledAt?: string | null;
+};
+
+export type ApplicationDetail = ApplicationSummary & {
+  /** Só aparece para o recrutador. Atalho da última nota do histórico. */
+  recruiterNote?: string | null;
+  /** Só aparece para o recrutador. Histórico append-only, mais recente primeiro. */
+  recruiterNotes?: RecruiterNoteEntry[];
+  analysis?: AnalysisDetail | null;
+  /** Histórico de convites, mais recente primeiro. */
+  interviews?: Interview[];
+};
+
+export function isRecruiterTag(value: unknown): value is RecruiterTag {
+  return typeof value === "string" && (RECRUITER_TAGS as readonly string[]).includes(value);
+}
+
+export function normalizeRecruiterTags(value: unknown): RecruiterTag[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<RecruiterTag>();
+  const out: RecruiterTag[] = [];
+  for (const item of value) {
+    if (isRecruiterTag(item) && !seen.has(item)) {
+      seen.add(item);
+      out.push(item);
+    }
+  }
+  return out;
+}
+
 export type ApiErrorCode =
-  | "DEVICE_ID_REQUIRED"
+  | "UNAUTHORIZED"
+  | "INVALID_CREDENTIALS"
+  | "ROLE_MISMATCH"
+  | "EMAIL_TAKEN"
   | "INVALID_FILE"
   | "FILE_TOO_LARGE"
   | "TEXT_NOT_EXTRACTABLE"
   | "TEXT_TOO_SHORT"
   | "AI_UNAVAILABLE"
   | "AI_INVALID_RESPONSE"
-  | "NOT_FOUND";
+  | "NOT_FOUND"
+  | "ROLE_REQUIRED"
+  | "FORBIDDEN"
+  | "ALREADY_APPLIED"
+  | "INVALID_BODY"
+  | "INVALID_TRANSITION"
+  | "INTERNAL";
 
 export type ApiErrorBody = {
   error: ApiErrorCode;
   message: string;
+};
+
+export const ROLE_LABELS: Record<Role, string> = {
+  CANDIDATE: "Candidato",
+  RECRUITER: "Recrutador",
+  EMPLOYER: "Contratante",
+};
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  SUBMITTED: "Candidatura enviada",
+  DISCARDED: "Não avançou",
+  FORWARDED: "Encaminhada ao contratante",
+  ADJUSTMENT_REQUESTED: "Pedido de ajuste",
+  ACCEPTED: "Aceita",
+  REJECTED: "Recusada",
+};
+
+export const INTERVIEW_STATUS_LABELS: Record<InterviewStatus, string> = {
+  PROPOSED: "Aguardando resposta",
+  ACCEPTED: "Data confirmada",
+  DECLINED: "Data recusada",
+};
+
+export const APPLICATION_EVENT_LABELS: Record<ApplicationEventType, string> = {
+  SUBMITTED: "Currículo enviado",
+  RESUBMITTED: "Currículo reenviado",
+  FORWARDED: "Encaminhada ao contratante",
+  DISCARDED: "Descartada na triagem",
+  ADJUSTMENT_REQUESTED: "Pedido de ajuste",
+  ACCEPTED: "Candidatura aceita",
+  REJECTED: "Candidatura recusada",
+  INTERVIEW_PROPOSED: "Entrevista proposta",
+  INTERVIEW_ACCEPTED: "Entrevista confirmada",
+  INTERVIEW_DECLINED: "Entrevista recusada",
 };
 
 function isPoint(value: unknown): boolean {

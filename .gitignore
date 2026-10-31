@@ -12,6 +12,7 @@ Thumbs.db
 apps/api/generated
 apps/mobile/android
 apps/mobile/ios
+apps/mobile/public/sql-wasm-browser.wasm
 *.tsbuildinfo
 .vscode/*
 !.vscode/extensions.json

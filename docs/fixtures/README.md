@@ -1,15 +1,23 @@
-# Fixtures de currículos — Etapa 3
+# Fixtures — currículos e erros
 
-Três textos usados para validar o prompt e o contrato JSON (`packages/shared`).
-Rode `npm run test:fixtures -w @linkup/api` para garantir que os JSON de exemplo passam em `isAnalysisResult`.
+Textos e JSONs para validar o prompt/contrato (`packages/shared`), mais artefatos para smoke da API.
+
+```bash
+npm run test:fixtures -w @linkup/api
+npm run smoke:api -w @linkup/api   # API precisa estar no ar
+```
 
 | Arquivo | Perfil |
 | --- | --- |
 | `good.txt` | Currículo com estrutura, resultados e keywords |
 | `average.txt` | Currículo mediano, genérico |
 | `weak.txt` | Currículo fraco / quase vazio de evidências |
-| `sample-resume.pdf` | PDF de smoke test para `POST /analyses` (texto selecionável) |
+| `sample-resume.pdf` | PDF de smoke — sucesso (`201 COMPLETED`) |
+| `short-resume.pdf` | Texto curto demais → `TEXT_TOO_SHORT` |
+| `not-a-pdf.txt` | Arquivo inválido → `INVALID_FILE` |
 | `*-result.json` | Respostas esperadas no formato do contrato |
 | `invalid-result.json` | Payload que **deve** ser rejeitado com `AI_INVALID_RESPONSE` |
 
-Os arquivos `*-result.json` são respostas **esperadas no formato do contrato** (úteis no mock e na revisão de prompt). Não substituem uma chamada real à OpenAI.
+PDF grande (`FILE_TOO_LARGE`) não é versionado — ver receita em `docs/runbook.md`.
+
+Os `*-result.json` não substituem uma chamada real à OpenAI.
