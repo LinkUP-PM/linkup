@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Modal, StyleSheet, Text, View } from "react-native";
 import { colors, radius, spacing, type } from "../theme/tokens";
+import { BrandLogo, brandLogoSizes } from "./BrandLogo";
 
 const STEPS = [
   "Lendo o PDF…",
@@ -30,6 +31,7 @@ export function AnalyzingOverlay({ visible }: Props) {
     <Modal visible={visible} animationType="fade" transparent>
       <View style={styles.backdrop}>
         <View style={styles.card}>
+          <BrandLogo variant="mark" size={brandLogoSizes.overlay} framed />
           <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.title}>Analisando</Text>
           <Text style={styles.step}>{STEPS[step]}</Text>

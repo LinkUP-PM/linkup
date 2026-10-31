@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
-import type { Job } from "@linkup/shared";
+import type { Job, Resume } from "@linkup/shared";
 import { AnalyzingOverlay } from "../../src/components/AnalyzingOverlay";
+import { PickResumeSheet } from "../../src/components/PickResumeSheet";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
-import { applyToJob, getJob } from "../../src/lib/api";
-import { pickPdf } from "../../src/lib/pick-pdf";
+import { applyToJob, getJob, getResumeUploadInput, listResumes } from "../../src/lib/api";
 import { colors, fonts, spacing } from "../../src/theme/tokens";
 
 export default function JobDetailScreen() {
@@ -15,12 +15,16 @@ export default function JobDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [hasResumes, setHasResumes] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
-      setJob(await getJob(id));
+      const [nextJob, resumes] = await Promise.all([getJob(id), listResumes()]);
+      setJob(nextJob);
+      setHasResumes(resumes.length > 0);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível carregar a vaga.");
@@ -36,22 +40,13 @@ export default function JobDetailScreen() {
     }, [load]),
   );
 
-  async function pickAndApply() {
+  async function applyWithResume(resume: Resume) {
     if (!id) return;
+    setPickerOpen(false);
     setError(null);
-    let file: Awaited<ReturnType<typeof pickPdf>>;
-    try {
-      file = await pickPdf();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Não foi possível abrir o seletor de arquivos.",
-      );
-      return;
-    }
-    if (!file) return;
-
     setBusy(true);
     try {
+      const file = await getResumeUploadInput(resume.id);
       const application = await applyToJob(id, file);
       router.replace(`/candidatura/${application.id}` as Href);
     } catch (err) {
@@ -94,13 +89,32 @@ export default function JobDetailScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <PrimaryButton
-          label="Candidatar com PDF"
-          onPress={() => void pickAndApply()}
-          disabled={busy}
-          style={styles.cta}
-        />
+        {hasResumes ? (
+          <PrimaryButton
+            label="Encaminhar currículo"
+            onPress={() => setPickerOpen(true)}
+            disabled={busy}
+            style={styles.cta}
+          />
+        ) : (
+          <PrimaryButton
+            label="Salvar currículo no perfil"
+            onPress={() => router.push("/perfil" as Href)}
+            disabled={busy}
+            style={styles.cta}
+          />
+        )}
       </ScrollView>
+      <PickResumeSheet
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(resume) => void applyWithResume(resume)}
+        emptyActionLabel="Ir ao perfil"
+        onEmptyAction={() => {
+          setPickerOpen(false);
+          router.push("/perfil" as Href);
+        }}
+      />
       <AnalyzingOverlay visible={busy} />
     </>
   );
@@ -127,14 +141,11 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: spacing.lg,
   },
   label: {
     fontFamily: fonts.bodySemi,
     fontSize: 13,
-    color: colors.muted,
+    color: colors.accent,
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },

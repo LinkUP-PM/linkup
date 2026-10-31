@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { AnalyzingOverlay } from "../../src/components/AnalyzingOverlay";
+import { BrandLogo, brandLogoSizes } from "../../src/components/BrandLogo";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
-import { createAnalysis } from "../../src/lib/api";
+import { SaveResumeSheet } from "../../src/components/SaveResumeSheet";
+import { createAnalysis, type UploadFileInput } from "../../src/lib/api";
 import { pickPdf } from "../../src/lib/pick-pdf";
 import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
 
@@ -20,6 +22,24 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<UploadFileInput | null>(null);
+
+  const continueWithFile = useCallback(
+    async (file: UploadFileInput) => {
+      setPendingFile(null);
+      setBusy(true);
+      setError(null);
+      try {
+        const analysis = await createAnalysis(file);
+        router.push(`/analise/${analysis.id}`);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Não foi possível analisar o arquivo.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [router],
+  );
 
   async function pickAndSend() {
     setError(null);
@@ -35,17 +55,12 @@ export default function HomeScreen() {
       return;
     }
     if (!file) return;
-
-    setBusy(true);
-    try {
-      const analysis = await createAnalysis(file);
-      router.push(`/analise/${analysis.id}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível analisar o arquivo.");
-    } finally {
-      setBusy(false);
-    }
+    setPendingFile(file);
   }
+
+  const handleSaveError = useCallback((message: string) => {
+    setError(message);
+  }, []);
 
   return (
     <View
@@ -55,7 +70,11 @@ export default function HomeScreen() {
       ]}
     >
       <View style={styles.content}>
-        <Text style={styles.brand}>LinkUP</Text>
+        <BrandLogo
+          variant="wordmark"
+          width={brandLogoSizes.compact}
+          style={styles.brand}
+        />
         <Text style={styles.title}>Seu currículo, com o que melhorar agora.</Text>
         <Text style={styles.body}>
           Feedback em três blocos — sem nota genérica, sem enrolação.
@@ -70,12 +89,20 @@ export default function HomeScreen() {
         </View>
 
         <Pressable
-          onPress={pickAndSend}
-          disabled={busy}
-          style={({ pressed }) => [styles.dropzone, pressed && styles.dropzonePressed, error && styles.dropzoneError]}
+          onPress={() => void pickAndSend()}
+          disabled={busy || pendingFile != null}
+          style={({ pressed }) => [
+            styles.dropzone,
+            pressed && styles.dropzonePressed,
+            error && styles.dropzoneError,
+          ]}
         >
           <View style={styles.iconWrap}>
-            <Ionicons name="document-text-outline" size={28} color={error ? colors.error : colors.accent} />
+            <Ionicons
+              name="document-text-outline"
+              size={28}
+              color={error ? colors.error : colors.accent}
+            />
           </View>
           <Text style={styles.dropTitle}>Toque para escolher um PDF</Text>
           <Text style={styles.dropHint}>Currículo em PDF com texto selecionável</Text>
@@ -90,9 +117,21 @@ export default function HomeScreen() {
 
       <PrimaryButton
         label="Enviar currículo em PDF"
-        onPress={pickAndSend}
-        disabled={busy}
+        onPress={() => void pickAndSend()}
+        disabled={busy || pendingFile != null}
         style={styles.cta}
+      />
+
+      <SaveResumeSheet
+        visible={pendingFile != null}
+        file={pendingFile}
+        onSkip={() => {
+          if (pendingFile) void continueWithFile(pendingFile);
+        }}
+        onSaved={() => {
+          if (pendingFile) void continueWithFile(pendingFile);
+        }}
+        onError={handleSaveError}
       />
 
       <AnalyzingOverlay visible={busy} />
@@ -113,11 +152,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   brand: {
-    ...type.footnote,
-    fontFamily: fonts.bodySemi,
-    color: colors.accent,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
+    marginBottom: spacing.xs,
   },
   title: {
     ...type.title1,

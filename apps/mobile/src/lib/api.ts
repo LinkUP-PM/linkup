@@ -7,20 +7,30 @@ import type {
   ApplicationSummary,
   AuthResponse,
   DecisionAction,
+  Interview,
+  InterviewRespondAction,
+  InterviewStatus,
   Job,
   Me,
   RecruiterNoteAction,
   RecruiterNoteEntry,
   RecruiterTag,
+  Resume,
+  ResumeKind,
   Role,
 } from "@linkup/shared";
-import { normalizeRecruiterTags } from "@linkup/shared";
+import { MAIN_RESUME_LABEL, MAX_FOCUSED_RESUMES, normalizeRecruiterTags } from "@linkup/shared";
 import { getDb } from "./db";
 import { fail } from "./errors";
 import { createId, createSessionToken, hashToken } from "./ids";
 import { mockAnalysisResult } from "./mock-analysis";
 import { hashPassword, verifyPassword } from "./password";
 import { extractPdfText, readPdfBytes, type PdfByteSource } from "./pdf";
+import {
+  deleteResumePdf,
+  storeResumePdf,
+  uploadInputFromStoredResume,
+} from "./resume-files";
 import { clearSessionToken, getSessionToken, setSessionToken } from "./session";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -97,6 +107,54 @@ type NoteEntryRow = {
   action: RecruiterNoteAction;
   created_at: string;
 };
+
+type ResumeRow = {
+  id: string;
+  user_id: string;
+  kind: ResumeKind;
+  label: string;
+  file_name: string;
+  file_uri: string;
+  file_size_bytes: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type InterviewRow = {
+  id: string;
+  application_id: string;
+  scheduled_at: string;
+  status: InterviewStatus;
+  created_at: string;
+  responded_at: string | null;
+  job_id?: string;
+  job_title?: string;
+  candidate_email?: string | null;
+};
+
+function toResume(row: ResumeRow): Resume {
+  return {
+    id: row.id,
+    kind: row.kind,
+    label: row.label,
+    fileName: row.file_name,
+    fileSizeBytes: row.file_size_bytes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function normalizeResumeLabel(kind: ResumeKind, label: string): string {
+  const trimmed = label.trim().replace(/\s+/g, " ");
+  if (kind === "MAIN") return MAIN_RESUME_LABEL;
+  if (trimmed.length < 2) {
+    fail("INVALID_BODY", "Dê um nome curto à versão (área ou empresa).");
+  }
+  if (trimmed.length > 40) {
+    fail("INVALID_BODY", "O nome da versão pode ter no máximo 40 caracteres.");
+  }
+  return trimmed;
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -271,14 +329,42 @@ function toAnalysisDetail(row: AnalysisRow): AnalysisDetail {
   };
 }
 
+function toInterview(
+  row: InterviewRow,
+  ctx: { jobId: string; jobTitle: string; candidateEmail?: string | null },
+  includeEmail: boolean,
+): Interview {
+  const interview: Interview = {
+    id: row.id,
+    applicationId: row.application_id,
+    jobId: ctx.jobId,
+    jobTitle: ctx.jobTitle,
+    scheduledAt: row.scheduled_at,
+    status: row.status,
+    createdAt: row.created_at,
+    respondedAt: row.responded_at,
+  };
+  if (includeEmail && ctx.candidateEmail) {
+    interview.candidateEmail = ctx.candidateEmail;
+  }
+  return interview;
+}
+
+function currentInterviewFromList(interviews: Interview[]): Interview | null {
+  return interviews.find((item) => item.status === "PROPOSED" || item.status === "ACCEPTED") ?? null;
+}
+
 function toApplicationSummary(
   row: ApplicationRow,
   opts?: {
     includeDecisionMessage?: boolean;
     recruiterPreview?: boolean;
+    includeCandidateEmail?: boolean;
     previewSkills?: string[];
     previewStrengths?: string[];
     previewAttention?: string[];
+    interviewStatus?: InterviewStatus | null;
+    interviewScheduledAt?: string | null;
   },
 ): ApplicationSummary {
   const summary: ApplicationSummary = {
@@ -301,6 +387,15 @@ function toApplicationSummary(
     summary.previewAttention = opts.previewAttention ?? [];
     summary.recruiterTags = parseTagsJson(row.recruiter_tags);
   }
+  if (opts?.includeCandidateEmail && row.candidate_email) {
+    summary.candidateEmail = row.candidate_email;
+  }
+  if (opts?.interviewStatus !== undefined) {
+    summary.interviewStatus = opts.interviewStatus;
+  }
+  if (opts?.interviewScheduledAt !== undefined) {
+    summary.interviewScheduledAt = opts.interviewScheduledAt;
+  }
   return summary;
 }
 
@@ -309,15 +404,20 @@ function toApplicationDetail(
   viewer: Role,
   analysis?: AnalysisRow | null,
   notes?: RecruiterNoteEntry[],
+  interviews?: Interview[],
 ): ApplicationDetail {
+  const current = interviews ? currentInterviewFromList(interviews) : null;
   const detail: ApplicationDetail = toApplicationSummary(row, {
     recruiterPreview: viewer === "RECRUITER",
+    includeCandidateEmail: viewer === "EMPLOYER",
     previewSkills:
       viewer === "RECRUITER" ? previewSkillsFromResultJson(analysis?.result_json) : undefined,
     previewStrengths:
       viewer === "RECRUITER" ? previewStrengthsFromResultJson(analysis?.result_json) : undefined,
     previewAttention:
       viewer === "RECRUITER" ? previewAttentionFromResultJson(analysis?.result_json) : undefined,
+    interviewStatus: current?.status ?? null,
+    interviewScheduledAt: current?.scheduledAt ?? null,
   });
   if (viewer === "RECRUITER") {
     detail.recruiterNote = row.recruiter_note;
@@ -329,6 +429,7 @@ function toApplicationDetail(
   if ((viewer === "RECRUITER" || viewer === "EMPLOYER") && analysis) {
     detail.analysis = toAnalysisDetail(analysis);
   }
+  detail.interviews = interviews ?? [];
   return detail;
 }
 
@@ -455,6 +556,57 @@ async function loadApplication(id: string): Promise<ApplicationRow | null> {
      WHERE a.id = ?`,
     id,
   );
+}
+
+async function loadInterviewsForApplication(
+  applicationId: string,
+  ctx: { jobId: string; jobTitle: string; candidateEmail?: string | null },
+  includeEmail: boolean,
+): Promise<Interview[]> {
+  const db = await getDb();
+  const rows = await db.getAllAsync<InterviewRow>(
+    `SELECT * FROM interviews
+     WHERE application_id = ?
+     ORDER BY created_at DESC`,
+    applicationId,
+  );
+  return rows.map((row) => toInterview(row, ctx, includeEmail));
+}
+
+async function loadCurrentInterviewMap(
+  applicationIds: string[],
+): Promise<Map<string, { status: InterviewStatus; scheduledAt: string }>> {
+  const map = new Map<string, { status: InterviewStatus; scheduledAt: string }>();
+  if (applicationIds.length === 0) return map;
+  const db = await getDb();
+  const placeholders = applicationIds.map(() => "?").join(",");
+  const rows = await db.getAllAsync<InterviewRow>(
+    `SELECT * FROM interviews
+     WHERE application_id IN (${placeholders})
+       AND status IN ('PROPOSED', 'ACCEPTED')
+     ORDER BY created_at DESC`,
+    ...applicationIds,
+  );
+  for (const row of rows) {
+    if (!map.has(row.application_id)) {
+      map.set(row.application_id, {
+        status: row.status,
+        scheduledAt: row.scheduled_at,
+      });
+    }
+  }
+  return map;
+}
+
+function assertFutureIso(scheduledAt: string): Date {
+  const date = new Date(scheduledAt);
+  if (Number.isNaN(date.getTime())) {
+    fail("INVALID_BODY", "Informe uma data e hora válidas.");
+  }
+  if (date.getTime() <= Date.now()) {
+    fail("INVALID_BODY", "A entrevista precisa ser no futuro.");
+  }
+  return date;
 }
 
 async function loadAnalysis(id: string): Promise<AnalysisRow | null> {
@@ -875,7 +1027,14 @@ export async function listApplications(): Promise<ApplicationSummary[]> {
      ORDER BY a.created_at DESC`,
     user.id,
   );
-  return rows.map((row) => toApplicationSummary(row));
+  const currentMap = await loadCurrentInterviewMap(rows.map((row) => row.id));
+  return rows.map((row) => {
+    const current = currentMap.get(row.id);
+    return toApplicationSummary(row, {
+      interviewStatus: current?.status ?? null,
+      interviewScheduledAt: current?.scheduledAt ?? null,
+    });
+  });
 }
 
 export async function getApplication(id: string): Promise<ApplicationDetail> {
@@ -883,17 +1042,25 @@ export async function getApplication(id: string): Promise<ApplicationDetail> {
   const row = await loadApplication(id);
   if (!row) fail("NOT_FOUND", "Candidatura não encontrada.");
 
+  const interviewCtx = {
+    jobId: row.job_id,
+    jobTitle: row.job_title,
+    candidateEmail: row.candidate_email,
+  };
+
   if (user.role === "CANDIDATE") {
     if (row.candidate_id !== user.id) {
       fail("NOT_FOUND", "Candidatura não encontrada.");
     }
-    return toApplicationDetail(row, "CANDIDATE");
+    const interviews = await loadInterviewsForApplication(id, interviewCtx, false);
+    return toApplicationDetail(row, "CANDIDATE", null, undefined, interviews);
   }
 
   if (user.role === "RECRUITER") {
     const analysis = await loadAnalysis(row.analysis_id);
     const notes = await loadNoteEntries(id);
-    return toApplicationDetail(row, "RECRUITER", analysis, notes);
+    const interviews = await loadInterviewsForApplication(id, interviewCtx, true);
+    return toApplicationDetail(row, "RECRUITER", analysis, notes, interviews);
   }
 
   if (user.role === "EMPLOYER") {
@@ -901,7 +1068,8 @@ export async function getApplication(id: string): Promise<ApplicationDetail> {
       fail("NOT_FOUND", "Candidatura não encontrada.");
     }
     const analysis = await loadAnalysis(row.analysis_id);
-    return toApplicationDetail(row, "EMPLOYER", analysis);
+    const interviews = await loadInterviewsForApplication(id, interviewCtx, true);
+    return toApplicationDetail(row, "EMPLOYER", analysis, undefined, interviews);
   }
 
   fail("FORBIDDEN", "Esta ação não está disponível para o seu papel.");
@@ -1080,7 +1248,203 @@ export async function decideApplication(
   const updated = await loadApplication(id);
   if (!updated) fail("NOT_FOUND", "Candidatura não encontrada.");
   const analysis = await loadAnalysis(updated.analysis_id);
-  return toApplicationDetail(updated, "EMPLOYER", analysis);
+  return toApplicationDetail(updated, "EMPLOYER", analysis, undefined, []);
+}
+
+export async function listInterviews(): Promise<Interview[]> {
+  const user = await requireUser();
+  const db = await getDb();
+
+  if (user.role === "CANDIDATE") {
+    const rows = await db.getAllAsync<InterviewRow>(
+      `SELECT i.*, a.job_id as job_id, j.title as job_title
+       FROM interviews i
+       JOIN applications a ON a.id = i.application_id
+       JOIN jobs j ON j.id = a.job_id
+       WHERE a.candidate_id = ?
+       ORDER BY i.scheduled_at ASC`,
+      user.id,
+    );
+    return rows.map((row) =>
+      toInterview(
+        row,
+        {
+          jobId: row.job_id ?? "",
+          jobTitle: row.job_title ?? "",
+        },
+        false,
+      ),
+    );
+  }
+
+  if (user.role === "EMPLOYER") {
+    const rows = await db.getAllAsync<InterviewRow>(
+      `SELECT i.*, a.job_id as job_id, j.title as job_title, u.email as candidate_email
+       FROM interviews i
+       JOIN applications a ON a.id = i.application_id
+       JOIN jobs j ON j.id = a.job_id
+       JOIN users u ON u.id = a.candidate_id
+       WHERE j.employer_id = ?
+       ORDER BY i.scheduled_at ASC`,
+      user.id,
+    );
+    return rows.map((row) =>
+      toInterview(
+        row,
+        {
+          jobId: row.job_id ?? "",
+          jobTitle: row.job_title ?? "",
+          candidateEmail: row.candidate_email,
+        },
+        true,
+      ),
+    );
+  }
+
+  if (user.role === "RECRUITER") {
+    const rows = await db.getAllAsync<InterviewRow>(
+      `SELECT i.*, a.job_id as job_id, j.title as job_title, u.email as candidate_email
+       FROM interviews i
+       JOIN applications a ON a.id = i.application_id
+       JOIN jobs j ON j.id = a.job_id
+       JOIN users u ON u.id = a.candidate_id
+       ORDER BY i.scheduled_at ASC`,
+    );
+    return rows.map((row) =>
+      toInterview(
+        row,
+        {
+          jobId: row.job_id ?? "",
+          jobTitle: row.job_title ?? "",
+          candidateEmail: row.candidate_email,
+        },
+        true,
+      ),
+    );
+  }
+
+  fail("FORBIDDEN", "Esta ação não está disponível para o seu papel.");
+}
+
+export async function proposeInterview(
+  applicationId: string,
+  input: { scheduledAt: string },
+): Promise<ApplicationDetail> {
+  const user = await requireRole("EMPLOYER");
+  const scheduled = assertFutureIso(input.scheduledAt);
+  const scheduledAt = scheduled.toISOString();
+
+  const row = await loadApplication(applicationId);
+  if (!row) fail("NOT_FOUND", "Candidatura não encontrada.");
+  if (row.employer_id !== user.id) {
+    fail("FORBIDDEN", "Esta vaga não é sua.");
+  }
+  if (row.status !== "ACCEPTED") {
+    fail(
+      "INVALID_TRANSITION",
+      "Só é possível marcar entrevista depois de aceitar o candidato.",
+    );
+  }
+
+  const db = await getDb();
+  const existing = await db.getAllAsync<InterviewRow>(
+    `SELECT * FROM interviews
+     WHERE application_id = ? AND status IN ('PROPOSED', 'ACCEPTED')
+     ORDER BY created_at DESC`,
+    applicationId,
+  );
+  const accepted = existing.find((item) => item.status === "ACCEPTED");
+  if (accepted) {
+    fail("INVALID_TRANSITION", "A data da entrevista já foi confirmada.");
+  }
+  const proposed = existing.find((item) => item.status === "PROPOSED");
+  const now = nowIso();
+
+  if (proposed) {
+    await db.runAsync(
+      `UPDATE interviews SET scheduled_at = ? WHERE id = ?`,
+      scheduledAt,
+      proposed.id,
+    );
+  } else {
+    const id = await createId();
+    await db.runAsync(
+      `INSERT INTO interviews (id, application_id, scheduled_at, status, created_at, responded_at)
+       VALUES (?, ?, ?, 'PROPOSED', ?, NULL)`,
+      id,
+      applicationId,
+      scheduledAt,
+      now,
+    );
+  }
+
+  await db.runAsync(`UPDATE applications SET updated_at = ? WHERE id = ?`, now, applicationId);
+
+  const updated = await loadApplication(applicationId);
+  if (!updated) fail("NOT_FOUND", "Candidatura não encontrada.");
+  const analysis = await loadAnalysis(updated.analysis_id);
+  const interviews = await loadInterviewsForApplication(
+    applicationId,
+    {
+      jobId: updated.job_id,
+      jobTitle: updated.job_title,
+      candidateEmail: updated.candidate_email,
+    },
+    true,
+  );
+  return toApplicationDetail(updated, "EMPLOYER", analysis, undefined, interviews);
+}
+
+export async function respondInterview(
+  interviewId: string,
+  input: { action: InterviewRespondAction },
+): Promise<ApplicationDetail> {
+  const user = await requireRole("CANDIDATE");
+  if (input.action !== "ACCEPT" && input.action !== "DECLINE") {
+    fail("INVALID_BODY", "Informe action: ACCEPT ou DECLINE.");
+  }
+
+  const db = await getDb();
+  const interview = await db.getFirstAsync<InterviewRow>(
+    `SELECT * FROM interviews WHERE id = ?`,
+    interviewId,
+  );
+  if (!interview) fail("NOT_FOUND", "Entrevista não encontrada.");
+
+  const row = await loadApplication(interview.application_id);
+  if (!row || row.candidate_id !== user.id) {
+    fail("NOT_FOUND", "Entrevista não encontrada.");
+  }
+  if (interview.status !== "PROPOSED") {
+    fail("INVALID_TRANSITION", "Só é possível responder a uma data proposta.");
+  }
+
+  const status: InterviewStatus = input.action === "ACCEPT" ? "ACCEPTED" : "DECLINED";
+  const respondedAt = nowIso();
+  await db.runAsync(
+    `UPDATE interviews SET status = ?, responded_at = ? WHERE id = ?`,
+    status,
+    respondedAt,
+    interviewId,
+  );
+  await db.runAsync(
+    `UPDATE applications SET updated_at = ? WHERE id = ?`,
+    respondedAt,
+    interview.application_id,
+  );
+
+  const updated = await loadApplication(interview.application_id);
+  if (!updated) fail("NOT_FOUND", "Candidatura não encontrada.");
+  const interviews = await loadInterviewsForApplication(
+    interview.application_id,
+    {
+      jobId: updated.job_id,
+      jobTitle: updated.job_title,
+      candidateEmail: updated.candidate_email,
+    },
+    false,
+  );
+  return toApplicationDetail(updated, "CANDIDATE", null, undefined, interviews);
 }
 
 export async function resubmitApplication(
@@ -1167,4 +1531,201 @@ export async function getAnalysis(id: string): Promise<AnalysisDetail> {
   );
   if (!row) fail("NOT_FOUND", "Análise não encontrada.");
   return toAnalysisDetail(row);
+}
+
+export async function listResumes(): Promise<Resume[]> {
+  const user = await requireRole("CANDIDATE");
+  const db = await getDb();
+  const rows = await db.getAllAsync<ResumeRow>(
+    `SELECT * FROM resumes
+     WHERE user_id = ?
+     ORDER BY CASE kind WHEN 'MAIN' THEN 0 ELSE 1 END, created_at ASC`,
+    user.id,
+  );
+  return rows.map(toResume);
+}
+
+async function loadResumeForUser(userId: string, resumeId: string): Promise<ResumeRow> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<ResumeRow>(
+    `SELECT * FROM resumes WHERE id = ? AND user_id = ?`,
+    resumeId,
+    userId,
+  );
+  if (!row) fail("NOT_FOUND", "Currículo não encontrado.");
+  return row;
+}
+
+export async function createResume(params: {
+  kind: ResumeKind;
+  label?: string;
+  input: UploadFileInput;
+}): Promise<Resume> {
+  const user = await requireRole("CANDIDATE");
+  const db = await getDb();
+  const label = normalizeResumeLabel(params.kind, params.label ?? "");
+
+  if (params.kind === "MAIN") {
+    const existing = await db.getFirstAsync<{ id: string }>(
+      `SELECT id FROM resumes WHERE user_id = ? AND kind = 'MAIN'`,
+      user.id,
+    );
+    if (existing) {
+      fail("INVALID_BODY", "Já existe um currículo principal. Substitua o arquivo ou remova-o.");
+    }
+  } else {
+    const countRow = await db.getFirstAsync<{ cnt: number }>(
+      `SELECT COUNT(*) as cnt FROM resumes WHERE user_id = ? AND kind = 'FOCUSED'`,
+      user.id,
+    );
+    if ((countRow?.cnt ?? 0) >= MAX_FOCUSED_RESUMES) {
+      fail(
+        "INVALID_BODY",
+        `Você já tem ${MAX_FOCUSED_RESUMES} versões. Substitua uma delas ou remova antes de adicionar.`,
+      );
+    }
+  }
+
+  const id = await createId();
+  const stored = await storeResumePdf({
+    userId: user.id,
+    resumeId: id,
+    input: params.input,
+  });
+  const createdAt = nowIso();
+  await db.runAsync(
+    `INSERT INTO resumes
+      (id, user_id, kind, label, file_name, file_uri, file_size_bytes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    user.id,
+    params.kind,
+    label,
+    stored.fileName,
+    stored.fileUri,
+    stored.fileSizeBytes,
+    createdAt,
+    createdAt,
+  );
+
+  return {
+    id,
+    kind: params.kind,
+    label,
+    fileName: stored.fileName,
+    fileSizeBytes: stored.fileSizeBytes,
+    createdAt,
+    updatedAt: createdAt,
+  };
+}
+
+export async function replaceResumeFile(
+  resumeId: string,
+  input: UploadFileInput,
+): Promise<Resume> {
+  const user = await requireRole("CANDIDATE");
+  const row = await loadResumeForUser(user.id, resumeId);
+  const stored = await storeResumePdf({
+    userId: user.id,
+    resumeId: row.id,
+    input,
+  });
+  if (stored.fileUri !== row.file_uri) {
+    await deleteResumePdf(row.file_uri);
+  }
+  const updatedAt = nowIso();
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE resumes
+     SET file_name = ?, file_uri = ?, file_size_bytes = ?, updated_at = ?
+     WHERE id = ?`,
+    stored.fileName,
+    stored.fileUri,
+    stored.fileSizeBytes,
+    updatedAt,
+    row.id,
+  );
+  return {
+    ...toResume(row),
+    fileName: stored.fileName,
+    fileSizeBytes: stored.fileSizeBytes,
+    updatedAt,
+  };
+}
+
+export async function renameResume(resumeId: string, label: string): Promise<Resume> {
+  const user = await requireRole("CANDIDATE");
+  const row = await loadResumeForUser(user.id, resumeId);
+  if (row.kind !== "FOCUSED") {
+    fail("INVALID_BODY", "Só as versões de área ou empresa podem ser renomeadas.");
+  }
+  const nextLabel = normalizeResumeLabel("FOCUSED", label);
+  const updatedAt = nowIso();
+  const db = await getDb();
+  await db.runAsync(
+    `UPDATE resumes SET label = ?, updated_at = ? WHERE id = ?`,
+    nextLabel,
+    updatedAt,
+    row.id,
+  );
+  return { ...toResume(row), label: nextLabel, updatedAt };
+}
+
+export async function deleteResume(resumeId: string): Promise<void> {
+  const user = await requireRole("CANDIDATE");
+  const row = await loadResumeForUser(user.id, resumeId);
+  const db = await getDb();
+  await db.runAsync(`DELETE FROM resumes WHERE id = ?`, row.id);
+  await deleteResumePdf(row.file_uri);
+}
+
+/** Lê o PDF salvo e devolve o mesmo formato usado no upload. */
+export async function getResumeUploadInput(resumeId: string): Promise<UploadFileInput> {
+  const user = await requireRole("CANDIDATE");
+  const row = await loadResumeForUser(user.id, resumeId);
+  return uploadInputFromStoredResume({
+    fileUri: row.file_uri,
+    fileName: row.file_name,
+  });
+}
+
+/**
+ * Cria ou substitui um slot a partir de um PDF já escolhido (Analisar / reenvio avulso).
+ * `replaceId` aponta para um FOCUSED existente quando as 3 versões já estão ocupadas.
+ */
+export async function savePickedPdfToLibrary(params: {
+  input: UploadFileInput;
+  target: "MAIN" | "NEW_FOCUSED" | { replaceId: string };
+  label?: string;
+}): Promise<Resume> {
+  const user = await requireRole("CANDIDATE");
+
+  if (params.target === "MAIN") {
+    const db = await getDb();
+    const existing = await db.getFirstAsync<{ id: string }>(
+      `SELECT id FROM resumes WHERE user_id = ? AND kind = 'MAIN'`,
+      user.id,
+    );
+    if (existing) {
+      return replaceResumeFile(existing.id, params.input);
+    }
+    return createResume({ kind: "MAIN", input: params.input });
+  }
+
+  if (params.target === "NEW_FOCUSED") {
+    return createResume({
+      kind: "FOCUSED",
+      label: params.label,
+      input: params.input,
+    });
+  }
+
+  const row = await loadResumeForUser(user.id, params.target.replaceId);
+  if (row.kind !== "FOCUSED") {
+    fail("INVALID_BODY", "Só é possível substituir uma versão focada neste fluxo.");
+  }
+  if (params.label && params.label.trim().length >= 2) {
+    await renameResume(row.id, params.label);
+  }
+  return replaceResumeFile(row.id, params.input);
 }

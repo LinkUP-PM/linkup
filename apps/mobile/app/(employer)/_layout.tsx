@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { BrandHeaderTitle } from "../../src/components/BrandHeaderTitle";
 import { SwitchRoleButton } from "../../src/components/SwitchRoleButton";
 import { TabBarBackground } from "../../src/components/TabBarBackground";
 import { colors, type } from "../../src/theme/tokens";
@@ -34,7 +35,7 @@ export default function EmployerTabsLayout() {
         name="index"
         options={{
           title: "Início",
-          headerTitle: "Minhas vagas",
+          headerTitle: () => <BrandHeaderTitle title="Minhas vagas" />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="briefcase-outline" size={size} color={color} />
           ),
@@ -44,7 +45,7 @@ export default function EmployerTabsLayout() {
         name="nova"
         options={{
           title: "Nova vaga",
-          headerTitle: "Nova vaga",
+          headerTitle: () => <BrandHeaderTitle title="Nova vaga" />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="add-circle-outline" size={size} color={color} />
           ),
@@ -56,6 +57,14 @@ export default function EmployerTabsLayout() {
           href: null,
           title: "Indicados",
           headerTitle: "Indicados",
+        }}
+      />
+      <Tabs.Screen
+        name="agenda"
+        options={{
+          href: null,
+          title: "Agenda",
+          headerTitle: "Agenda de entrevistas",
         }}
       />
     </Tabs>

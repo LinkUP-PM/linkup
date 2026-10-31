@@ -55,6 +55,7 @@ export default function RecruiterInboxScreen() {
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
+        brand
         title="Nada a triar"
         body="Quando candidatos enviarem PDF às vagas do contratante, elas aparecem aqui em uma fila única — reenvios depois de ajuste ficam no topo."
       />

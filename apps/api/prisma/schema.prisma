@@ -94,6 +94,12 @@ enum RecruiterNoteAction {
   DISCARD
 }
 
+enum InterviewStatus {
+  PROPOSED
+  ACCEPTED
+  DECLINED
+}
+
 model Application {
   id               String                @id @default(cuid())
   jobId            String
@@ -109,6 +115,7 @@ model Application {
   /** JSON array of RecruiterTag strings; recruiter-only. */
   recruiterTags    Json                  @default("[]")
   noteEntries      RecruiterNoteEntry[]
+  interviews       Interview[]
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
@@ -127,4 +134,17 @@ model RecruiterNoteEntry {
   createdAt     DateTime            @default(now())
 
   @@index([applicationId, createdAt])
+}
+
+model Interview {
+  id            String          @id @default(cuid())
+  applicationId String
+  application   Application     @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  scheduledAt   DateTime
+  status        InterviewStatus @default(PROPOSED)
+  createdAt     DateTime        @default(now())
+  respondedAt   DateTime?
+
+  @@index([applicationId, createdAt])
+  @@index([status, scheduledAt])
 }

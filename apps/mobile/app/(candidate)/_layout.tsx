@@ -2,7 +2,8 @@ import { Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { SwitchRoleButton } from "../../src/components/SwitchRoleButton";
+import { BrandHeaderTitle } from "../../src/components/BrandHeaderTitle";
+import { ProfileHeaderButton } from "../../src/components/ProfileHeaderButton";
 import { TabBarBackground } from "../../src/components/TabBarBackground";
 import { colors, type } from "../../src/theme/tokens";
 import { floatingTabBarStyle, screenHeaderOptions } from "../../src/theme/navigation";
@@ -12,7 +13,7 @@ export default function CandidateTabsLayout() {
     <Tabs
       screenOptions={{
         ...screenHeaderOptions,
-        headerRight: () => <SwitchRoleButton />,
+        headerRight: () => <ProfileHeaderButton />,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.tertiary,
         tabBarStyle: floatingTabBarStyle,
@@ -34,7 +35,7 @@ export default function CandidateTabsLayout() {
         name="index"
         options={{
           title: "Início",
-          headerTitle: "Candidaturas",
+          headerTitle: () => <BrandHeaderTitle title="Candidaturas" />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home-outline" size={size} color={color} />
           ),
@@ -44,7 +45,7 @@ export default function CandidateTabsLayout() {
         name="vagas"
         options={{
           title: "Vagas",
-          headerTitle: "Vagas abertas",
+          headerTitle: () => <BrandHeaderTitle title="Vagas abertas" />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="briefcase-outline" size={size} color={color} />
           ),
@@ -54,7 +55,7 @@ export default function CandidateTabsLayout() {
         name="analisar"
         options={{
           title: "Analisar",
-          headerTitle: "LinkUP",
+          headerTitle: () => <BrandHeaderTitle title="Analisar" />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="sparkles-outline" size={size} color={color} />
           ),
@@ -64,7 +65,7 @@ export default function CandidateTabsLayout() {
         name="historico"
         options={{
           title: "Histórico",
-          headerTitle: "Histórico",
+          headerTitle: () => <BrandHeaderTitle title="Histórico" />,
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time-outline" size={size} color={color} />
           ),

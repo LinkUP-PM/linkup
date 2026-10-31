@@ -3,6 +3,8 @@ import type {
   ApplicationDetail,
   ApplicationSummary,
   DecisionAction,
+  Interview,
+  InterviewStatus,
   RecruiterNoteAction,
   RecruiterNoteEntry,
   Role,
@@ -24,6 +26,15 @@ type NoteEntryRow = {
   text: string;
   action: RecruiterNoteAction;
   createdAt: Date;
+};
+
+type InterviewEntryRow = {
+  id: string;
+  applicationId: string;
+  scheduledAt: Date;
+  status: InterviewStatus;
+  createdAt: Date;
+  respondedAt: Date | null;
 };
 
 type ApplicationRow = {
@@ -49,6 +60,7 @@ type ApplicationRow = {
     createdAt?: Date;
   };
   noteEntries?: NoteEntryRow[];
+  interviews?: InterviewEntryRow[];
 };
 
 function previewSkillsFromResult(resultJson: unknown): string[] {
@@ -98,10 +110,41 @@ function toNoteEntry(row: NoteEntryRow): RecruiterNoteEntry {
   };
 }
 
+function toInterviewEntry(
+  row: InterviewEntryRow,
+  app: ApplicationRow,
+  includeEmail: boolean,
+): Interview {
+  const interview: Interview = {
+    id: row.id,
+    applicationId: row.applicationId,
+    jobId: app.jobId,
+    jobTitle: app.job.title,
+    scheduledAt: row.scheduledAt.toISOString(),
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    respondedAt: row.respondedAt?.toISOString() ?? null,
+  };
+  if (includeEmail && app.candidate?.email) {
+    interview.candidateEmail = app.candidate.email;
+  }
+  return interview;
+}
+
+function currentInterview(rows: InterviewEntryRow[] | undefined): InterviewEntryRow | null {
+  if (!rows) return null;
+  return rows.find((item) => item.status === "PROPOSED" || item.status === "ACCEPTED") ?? null;
+}
+
 export function toApplicationSummary(
   row: ApplicationRow,
-  opts?: { includeDecisionMessage?: boolean; recruiterPreview?: boolean },
+  opts?: {
+    includeDecisionMessage?: boolean;
+    recruiterPreview?: boolean;
+    includeCandidateEmail?: boolean;
+  },
 ): ApplicationSummary {
+  const current = currentInterview(row.interviews);
   const summary: ApplicationSummary = {
     id: row.id,
     jobId: row.jobId,
@@ -110,6 +153,8 @@ export function toApplicationSummary(
     analysisId: row.analysisId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
+    interviewStatus: current?.status ?? null,
+    interviewScheduledAt: current?.scheduledAt.toISOString() ?? null,
   };
   if (opts?.includeDecisionMessage !== false) {
     summary.decisionMessage = row.decisionMessage;
@@ -122,6 +167,9 @@ export function toApplicationSummary(
     summary.previewAttention = previewAttentionFromResult(row.analysis?.resultJson);
     summary.recruiterTags = normalizeRecruiterTags(row.recruiterTags);
   }
+  if (opts?.includeCandidateEmail && row.candidate?.email) {
+    summary.candidateEmail = row.candidate.email;
+  }
   return summary;
 }
 
@@ -131,6 +179,7 @@ export function toApplicationDetail(
 ): ApplicationDetail {
   const detail: ApplicationDetail = toApplicationSummary(row, {
     recruiterPreview: viewer === "RECRUITER",
+    includeCandidateEmail: viewer === "EMPLOYER",
   });
 
   if (viewer === "RECRUITER") {
@@ -166,6 +215,11 @@ export function toApplicationDetail(
     detail.decisionMessage = row.decisionMessage;
   }
 
+  const includeEmail = viewer === "RECRUITER" || viewer === "EMPLOYER";
+  detail.interviews = (row.interviews ?? []).map((item) =>
+    toInterviewEntry(item, row, includeEmail),
+  );
+
   return detail;
 }
 
@@ -178,6 +232,7 @@ const applicationInclude = {
   candidate: { select: { email: true } },
   analysis: true,
   noteEntries: { orderBy: { createdAt: "desc" as const } },
+  interviews: { orderBy: { createdAt: "desc" as const } },
 };
 
 async function loadApplication(id: string): Promise<ApplicationRow | null> {
@@ -211,7 +266,10 @@ export async function applicationsRoutes(app: FastifyInstance) {
     const rows = await prisma.application.findMany({
       where: { candidateId: user.id },
       orderBy: { createdAt: "desc" },
-      include: { job: { select: { title: true, employerId: true } } },
+      include: {
+        job: { select: { title: true, employerId: true } },
+        interviews: { orderBy: { createdAt: "desc" } },
+      },
     });
 
     return {

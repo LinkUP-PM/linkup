@@ -1,6 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,13 +9,24 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { ApplicationSummary } from "@linkup/shared";
+import { INTERVIEW_STATUS_LABELS } from "@linkup/shared";
 import { ApplicationStatusPill } from "../../src/components/ApplicationStatusPill";
 import { EmptyState } from "../../src/components/EmptyState";
 import { GroupedSection } from "../../src/components/GroupedSection";
 import { ListRow } from "../../src/components/ListRow";
+import { LoadingScreen } from "../../src/components/LoadingScreen";
 import { listApplications } from "../../src/lib/api";
+import { formatInterviewWhen } from "../../src/lib/interview-datetime";
 import { relativeTime } from "../../src/lib/relativeTime";
-import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
+import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
+
+function applicationMeta(item: ApplicationSummary): string {
+  const base = relativeTime(item.createdAt);
+  if (item.interviewStatus && item.interviewScheduledAt) {
+    return `${base} · ${INTERVIEW_STATUS_LABELS[item.interviewStatus]} · ${formatInterviewWhen(item.interviewScheduledAt)}`;
+  }
+  return base;
+}
 
 export default function CandidateHomeScreen() {
   const router = useRouter();
@@ -38,6 +48,10 @@ export default function CandidateHomeScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   useFocusEffect(
     useCallback(() => {
       void load();
@@ -45,17 +59,13 @@ export default function CandidateHomeScreen() {
   );
 
   if (!hasLoaded) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.accent} />
-        <Text style={styles.loadingText}>Carregando candidaturas…</Text>
-      </View>
-    );
+    return <LoadingScreen message="Carregando candidaturas…" />;
   }
 
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
+        brand
         title="Nenhuma candidatura ainda"
         body="Veja as vagas abertas, envie o PDF e acompanhe o status por aqui."
         actionLabel="Ver vagas"
@@ -83,7 +93,7 @@ export default function CandidateHomeScreen() {
           <ListRow
             key={item.id}
             title={item.jobTitle}
-            meta={relativeTime(item.createdAt)}
+            meta={applicationMeta(item)}
             accessory={<ApplicationStatusPill status={item.status} />}
             onPress={() => router.push(`/candidatura/${item.id}` as Href)}
           />
@@ -99,18 +109,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.tabBarClearance,
     flexGrow: 1,
     backgroundColor: colors.background,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.xl,
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    ...type.subhead,
-    color: colors.muted,
   },
   errorBox: {
     gap: spacing.sm,

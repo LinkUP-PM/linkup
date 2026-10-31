@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { LoadingScreen } from "../src/components/LoadingScreen";
 import { getMe } from "../src/lib/api";
 import { homeHrefForRole, isRole } from "../src/lib/role";
 import { clearSessionToken, getSessionToken } from "../src/lib/session";
-import { colors, fonts, spacing } from "../src/theme/tokens";
 
 export default function BootstrapScreen() {
   const router = useRouter();
@@ -47,28 +46,5 @@ export default function BootstrapScreen() {
     };
   }, [router]);
 
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator color={colors.accent} />
-      <Text style={styles.text}>{error ?? "Abrindo o LinkUP…"}</Text>
-    </View>
-  );
+  return <LoadingScreen message={error ?? "Abrindo o LinkUP…"} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.md,
-    backgroundColor: colors.background,
-    padding: spacing.xl,
-  },
-  text: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.muted,
-    textAlign: "center",
-    lineHeight: 22,
-  },
-});

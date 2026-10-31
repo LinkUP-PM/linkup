@@ -63,12 +63,45 @@ export type ApplicationStatus =
 
 export type DecisionAction = "ACCEPT" | "REJECT" | "REQUEST_ADJUSTMENT";
 
+export type InterviewStatus = "PROPOSED" | "ACCEPTED" | "DECLINED";
+
+export type InterviewRespondAction = "ACCEPT" | "DECLINE";
+
+export type Interview = {
+  id: string;
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  scheduledAt: string;
+  status: InterviewStatus;
+  createdAt: string;
+  respondedAt?: string | null;
+  /** Recrutador e contratante: identifica o candidato. */
+  candidateEmail?: string;
+};
+
 export type Me = {
   id: string;
   email: string;
   role: Role;
   createdAt: string;
 };
+
+/** Slot na biblioteca do candidato: 1 principal + até 3 versões focadas. */
+export type ResumeKind = "MAIN" | "FOCUSED";
+
+export type Resume = {
+  id: string;
+  kind: ResumeKind;
+  label: string;
+  fileName: string;
+  fileSizeBytes: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export const MAX_FOCUSED_RESUMES = 3;
+export const MAIN_RESUME_LABEL = "Currículo principal";
 
 export type AuthResponse = {
   token: string;
@@ -133,7 +166,7 @@ export type ApplicationSummary = {
   createdAt: string;
   updatedAt: string;
   decisionMessage?: string | null;
-  /** Só aparece para o recrutador. */
+  /** Recrutador (sempre) e contratante (agenda/entrevista). */
   candidateEmail?: string;
   /** Só aparece para o recrutador. 1 na primeira vez; incrementa no reenvio. */
   submissionCount?: number;
@@ -145,6 +178,10 @@ export type ApplicationSummary = {
   previewAttention?: string[];
   /** Só aparece para o recrutador. Tags internas. */
   recruiterTags?: RecruiterTag[];
+  /** Convite atual (PROPOSED ou ACCEPTED), se houver. */
+  interviewStatus?: InterviewStatus | null;
+  /** Data/hora do convite atual. */
+  interviewScheduledAt?: string | null;
 };
 
 export type ApplicationDetail = ApplicationSummary & {
@@ -153,6 +190,8 @@ export type ApplicationDetail = ApplicationSummary & {
   /** Só aparece para o recrutador. Histórico append-only, mais recente primeiro. */
   recruiterNotes?: RecruiterNoteEntry[];
   analysis?: AnalysisDetail | null;
+  /** Histórico de convites, mais recente primeiro. */
+  interviews?: Interview[];
 };
 
 export function isRecruiterTag(value: unknown): value is RecruiterTag {
@@ -209,6 +248,12 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   ADJUSTMENT_REQUESTED: "Pedido de ajuste",
   ACCEPTED: "Aceita",
   REJECTED: "Recusada",
+};
+
+export const INTERVIEW_STATUS_LABELS: Record<InterviewStatus, string> = {
+  PROPOSED: "Aguardando resposta",
+  ACCEPTED: "Data confirmada",
+  DECLINED: "Data recusada",
 };
 
 function isPoint(value: unknown): boolean {

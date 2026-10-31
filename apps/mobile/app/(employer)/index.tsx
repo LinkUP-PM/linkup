@@ -1,6 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -13,9 +12,10 @@ import type { Job } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
 import { GroupedSection } from "../../src/components/GroupedSection";
 import { ListRow } from "../../src/components/ListRow";
+import { LoadingScreen } from "../../src/components/LoadingScreen";
 import { listJobs } from "../../src/lib/api";
 import { relativeTime } from "../../src/lib/relativeTime";
-import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
+import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
 
 export default function EmployerHomeScreen() {
   const router = useRouter();
@@ -37,6 +37,10 @@ export default function EmployerHomeScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   useFocusEffect(
     useCallback(() => {
       void load();
@@ -44,17 +48,13 @@ export default function EmployerHomeScreen() {
   );
 
   if (!hasLoaded) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.accent} />
-        <Text style={styles.loadingText}>Carregando vagas…</Text>
-      </View>
-    );
+    return <LoadingScreen message="Carregando vagas…" />;
   }
 
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
+        brand
         title="Nenhuma vaga ainda"
         body="Publique a primeira vaga. Os candidatos e o recrutador passam a vê-la."
         actionLabel="Abrir nova vaga"
@@ -68,6 +68,17 @@ export default function EmployerHomeScreen() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
+      <Pressable
+        style={({ pressed }) => [styles.agendaCard, pressed && styles.pressed]}
+        onPress={() => router.push("/(employer)/agenda" as Href)}
+      >
+        <Text style={styles.agendaLabel}>Agenda</Text>
+        <Text style={styles.agendaBody}>
+          Veja as datas que você marcou e o status da resposta do candidato.
+        </Text>
+        <Text style={styles.agendaLink}>Abrir agenda de entrevistas</Text>
+      </Pressable>
+
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.error}>{error}</Text>
@@ -102,17 +113,33 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: colors.background,
   },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.xl,
-    backgroundColor: colors.background,
+  agendaCard: {
+    backgroundColor: colors.accentSoft,
+    borderRadius: radius.group,
+    padding: spacing.lg,
+    gap: spacing.xs,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
   },
-  loadingText: {
-    ...type.subhead,
-    color: colors.muted,
+  pressed: { opacity: 0.85 },
+  agendaLabel: {
+    fontFamily: fonts.bodySemi,
+    fontSize: 12,
+    color: colors.accent,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  agendaBody: {
+    fontFamily: fonts.body,
+    fontSize: 15,
+    color: colors.ink,
+    lineHeight: 22,
+  },
+  agendaLink: {
+    fontFamily: fonts.bodySemi,
+    fontSize: 14,
+    color: colors.accent,
+    marginTop: spacing.xs,
   },
   errorBox: {
     gap: spacing.sm,

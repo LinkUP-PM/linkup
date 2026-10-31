@@ -1,6 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -13,6 +12,7 @@ import type { Job } from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
 import { GroupedSection } from "../../src/components/GroupedSection";
 import { ListRow } from "../../src/components/ListRow";
+import { LoadingScreen } from "../../src/components/LoadingScreen";
 import { listJobs } from "../../src/lib/api";
 import { relativeTime } from "../../src/lib/relativeTime";
 import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
@@ -37,6 +37,10 @@ export default function RecruiterHomeScreen() {
     }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   useFocusEffect(
     useCallback(() => {
       void load();
@@ -49,17 +53,13 @@ export default function RecruiterHomeScreen() {
   );
 
   if (!hasLoaded) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color={colors.accent} />
-        <Text style={styles.loadingText}>Carregando filas…</Text>
-      </View>
-    );
+    return <LoadingScreen message="Carregando filas…" />;
   }
 
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
+        brand
         title="Nenhuma vaga ainda"
         body="O recrutador não cria vagas. Peça ao contratante para publicar uma vaga neste aparelho; quando candidatos enviarem PDF, a triagem aparece aqui."
       />
@@ -86,6 +86,15 @@ export default function RecruiterHomeScreen() {
               : `${triageTotal} candidaturas aguardando`}
         </Text>
         <Text style={styles.inboxLink}>Abrir inbox global</Text>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [styles.agendaCard, pressed && styles.pressed]}
+        onPress={() => router.push("/(recruiter)/agenda" as Href)}
+      >
+        <Text style={styles.inboxLabel}>Agenda</Text>
+        <Text style={styles.inboxCount}>Entrevistas marcadas</Text>
+        <Text style={styles.inboxLink}>Acompanhar datas e respostas</Text>
       </Pressable>
 
       {error ? (
@@ -125,18 +134,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     backgroundColor: colors.background,
   },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    gap: spacing.md,
-    padding: spacing.xl,
-    backgroundColor: colors.background,
-  },
-  loadingText: {
-    ...type.subhead,
-    color: colors.muted,
-  },
   largeTitle: {
     ...type.largeTitle,
     color: colors.ink,
@@ -145,6 +142,14 @@ const styles = StyleSheet.create({
   },
   inboxCard: {
     backgroundColor: colors.accentSoft,
+    borderRadius: radius.group,
+    padding: spacing.lg,
+    gap: spacing.xs,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  agendaCard: {
+    backgroundColor: colors.surface,
     borderRadius: radius.group,
     padding: spacing.lg,
     gap: spacing.xs,

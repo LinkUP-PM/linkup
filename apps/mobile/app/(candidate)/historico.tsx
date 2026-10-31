@@ -56,6 +56,7 @@ export default function HistoryScreen() {
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
+        brand
         title="Ainda não tem análise"
         body="O primeiro PDF já muda o jogo — envie um currículo e veja o que melhorar."
         actionLabel="Analisar um PDF"

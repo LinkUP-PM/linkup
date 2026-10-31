@@ -55,6 +55,7 @@ export default function CandidateJobsScreen() {
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
+        brand
         title="Nenhuma vaga aberta"
         body="Quando um contratante publicar uma vaga, ela aparece aqui."
       />

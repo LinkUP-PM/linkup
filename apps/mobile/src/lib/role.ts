@@ -12,6 +12,13 @@ export function homeHrefForRole(role: Role): string {
   return "/(candidate)";
 }
 
+/** Root stack route name for the role group (no leading slash). */
+export function homeGroupForRole(role: Role): "(candidate)" | "(employer)" | "(recruiter)" {
+  if (role === "EMPLOYER") return "(employer)";
+  if (role === "RECRUITER") return "(recruiter)";
+  return "(candidate)";
+}
+
 export function loginHrefForRole(role: Role): string {
   if (role === "EMPLOYER") return "/login/contratante";
   if (role === "RECRUITER") return "/login/recrutador";

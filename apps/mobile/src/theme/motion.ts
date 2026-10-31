@@ -14,7 +14,7 @@ export const stackAnimations = {
   home: "fade",
   porta: "fade_from_bottom",
   login: "slide_from_right",
-  roleHome: "fade",
+  roleHome: "none",
   detail: "slide_from_right",
 } as const satisfies Record<string, StackAnimation>;
 

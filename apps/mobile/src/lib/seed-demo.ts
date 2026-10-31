@@ -40,6 +40,7 @@ const IDS = {
   noteAna: "demo-note-ana-mobile",
   noteBruno: "demo-note-bruno-mobile",
   noteCarla: "demo-note-carla-mobile",
+  interviewBrunoData: "demo-interview-bruno-data",
 } as const;
 
 const T0 = "2026-10-20T12:00:00.000Z";
@@ -48,6 +49,8 @@ const T2 = "2026-10-22T14:30:00.000Z";
 const T3 = "2026-10-23T09:15:00.000Z";
 const T4 = "2026-10-24T16:45:00.000Z";
 const T5 = "2026-10-25T11:20:00.000Z";
+/** Data futura para o convite demo (Bruno / vaga de dados). */
+const T_INTERVIEW = "2026-11-10T17:00:00.000Z";
 const T6 = "2026-10-26T08:00:00.000Z";
 const T7 = "2026-10-27T15:10:00.000Z";
 
@@ -203,6 +206,24 @@ const EXTRACTED = {
   weak: "Carla Nunes — Quero um emprego. Tenho computador. Telefone: 98 9…",
 } as const;
 
+async function seedDemoInterview(db: SeedDatabase): Promise<void> {
+  const app = await db.getFirstAsync<{ id: string }>(
+    `SELECT id FROM applications WHERE id = ?`,
+    IDS.appBrunoData,
+  );
+  if (!app) return;
+
+  await db.runAsync(
+    `INSERT OR IGNORE INTO interviews
+      (id, application_id, scheduled_at, status, created_at, responded_at)
+     VALUES (?, ?, ?, 'PROPOSED', ?, NULL)`,
+    IDS.interviewBrunoData,
+    IDS.appBrunoData,
+    T_INTERVIEW,
+    T5,
+  );
+}
+
 /**
  * Idempotent demo seed for local SQLite. Fixed IDs + INSERT OR IGNORE.
  * Does not delete or overwrite user-created data.
@@ -216,7 +237,10 @@ export async function seedDemo(db: SeedDatabase): Promise<void> {
     IDS.bruno,
     IDS.carla,
   );
-  if ((existing?.c ?? 0) >= 5) return;
+  if ((existing?.c ?? 0) >= 5) {
+    await seedDemoInterview(db);
+    return;
+  }
 
   const passwordHash = await hashPassword(DEMO_PASSWORD);
 
@@ -474,4 +498,6 @@ export async function seedDemo(db: SeedDatabase): Promise<void> {
     "Currículo sem evidências técnicas para a vaga.",
     T6,
   );
+
+  await seedDemoInterview(db);
 }

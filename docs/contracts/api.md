@@ -441,6 +441,82 @@ Erros de PDF/IA: mesmos de `POST /analyses`.
 | 404 | `NOT_FOUND` | Candidatura inexistente ou de outro candidato |
 | 409 | `INVALID_TRANSITION` | Status diferente de `ADJUSTMENT_REQUESTED` |
 
+## Agenda de entrevista
+
+Status do convite (`InterviewStatus`): `PROPOSED` | `ACCEPTED` | `DECLINED`.
+
+Fluxo: candidatura `ACCEPTED` → contratante marca dia (`PROPOSED`) → candidato aceita (`ACCEPTED`, trava) ou recusa (`DECLINED`, contratante marca outro dia). Enquanto `PROPOSED`, o contratante pode corrigir a data no mesmo convite. No máximo um convite `PROPOSED` ou `ACCEPTED` por candidatura.
+
+`ApplicationSummary` / `ApplicationDetail` incluem `interviewStatus` e `interviewScheduledAt` do convite atual (quando houver). `ApplicationDetail` inclui `interviews` (mais recente primeiro). O e-mail do candidato aparece para recrutador e contratante na agenda e no bloco de entrevista.
+
+### `GET /interviews`
+
+Lista entrevistas visíveis ao papel:
+
+- `CANDIDATE`: só as das próprias candidaturas (sem e-mail de terceiros)
+- `EMPLOYER`: das suas vagas (com `candidateEmail`)
+- `RECRUITER`: todas (com `candidateEmail`)
+
+Sucesso `200`:
+
+```json
+{
+  "items": [
+    {
+      "id": "clx...",
+      "applicationId": "clx...",
+      "jobId": "clx...",
+      "jobTitle": "Desenvolvedor mobile",
+      "scheduledAt": "2026-11-10T17:00:00.000Z",
+      "status": "PROPOSED",
+      "createdAt": "2026-10-25T11:20:00.000Z",
+      "respondedAt": null,
+      "candidateEmail": "bruno.lima@demo.linkup"
+    }
+  ]
+}
+```
+
+### `POST /applications/:id/interviews`
+
+Só `EMPLOYER` dono da vaga. Só com candidatura `ACCEPTED`.
+
+Corpo:
+
+```json
+{ "scheduledAt": "2026-11-10T17:00:00.000Z" }
+```
+
+`scheduledAt` em ISO 8601, no futuro. Se já existir convite `PROPOSED`, atualiza a data. Se já existir `ACCEPTED`, `409 INVALID_TRANSITION`.
+
+Sucesso `200`: `ApplicationDetail` do contratante com `interviews`.
+
+| HTTP | `error` | Quando |
+| --- | --- | --- |
+| 400 | `INVALID_BODY` | Data inválida ou no passado |
+| 403 | `FORBIDDEN` / `ROLE_REQUIRED` | Papel errado ou não é dono |
+| 404 | `NOT_FOUND` | Candidatura inexistente |
+| 409 | `INVALID_TRANSITION` | Status diferente de `ACCEPTED` ou data já confirmada |
+
+### `POST /interviews/:id/respond`
+
+Só `CANDIDATE` dono. Só com convite `PROPOSED`.
+
+Corpo:
+
+```json
+{ "action": "ACCEPT" | "DECLINE" }
+```
+
+Sucesso `200`: `ApplicationDetail` do candidato.
+
+| HTTP | `error` | Quando |
+| --- | --- | --- |
+| 400 | `INVALID_BODY` | Ação inválida |
+| 403 | `FORBIDDEN` / `ROLE_REQUIRED` | Papel errado |
+| 404 | `NOT_FOUND` | Entrevista inexistente ou de outro candidato |
+| 409 | `INVALID_TRANSITION` | Status diferente de `PROPOSED` |
+
 ## `POST /analyses`
 
 `multipart/form-data` com campo `file` (PDF).

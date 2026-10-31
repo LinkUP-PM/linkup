@@ -9,17 +9,20 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { CommonActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter, type Href } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import type { Role } from "@linkup/shared";
 import { ROLE_LABELS } from "@linkup/shared";
 import { login, register } from "../lib/api";
-import { homeHrefForRole } from "../lib/role";
+import { homeGroupForRole } from "../lib/role";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../lib/seed-demo";
 import { enter } from "../theme/motion";
 import { colors, fonts, radius, spacing, type } from "../theme/tokens";
+import { BrandLogo, brandLogoSizes } from "./BrandLogo";
 import { Enter } from "./Enter";
 import { GroupedSection } from "./GroupedSection";
+import { LoadingScreen } from "./LoadingScreen";
 import { PrimaryButton } from "./PrimaryButton";
 
 type Props = {
@@ -35,6 +38,7 @@ const DEMO_EMAIL_BY_ROLE: Record<Role, string> = {
 
 export function AuthScreen({ role, description }: Props) {
   const router = useRouter();
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -48,6 +52,28 @@ export function AuthScreen({ role, description }: Props) {
     email.trim().length > 3 &&
     password.length >= 8 &&
     (mode === "login" || password === confirm);
+
+  function resetToRoleHome(nextRole: Role) {
+    const group = homeGroupForRole(nextRole);
+    let root = navigation;
+    while (root.getParent()) {
+      root = root.getParent()!;
+    }
+    root.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [
+          {
+            name: group,
+            state: {
+              index: 0,
+              routes: [{ name: "index" }],
+            },
+          },
+        ],
+      }),
+    );
+  }
 
   async function submit() {
     setError(null);
@@ -63,11 +89,15 @@ export function AuthScreen({ role, description }: Props) {
         role,
       };
       const result = mode === "register" ? await register(payload) : await login(payload);
-      router.replace(homeHrefForRole(result.user.role) as Href);
+      resetToRoleHome(result.user.role);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível continuar.");
       setBusy(false);
     }
+  }
+
+  if (busy) {
+    return <LoadingScreen message={mode === "register" ? "Criando conta…" : "Entrando…"} />;
   }
 
   return (
@@ -90,7 +120,11 @@ export function AuthScreen({ role, description }: Props) {
         </Pressable>
 
         <Enter variant="fadeUp" delay={enter.delays.header}>
-          <Text style={styles.brand}>LinkUP</Text>
+          <BrandLogo
+            variant="wordmark"
+            width={brandLogoSizes.compact}
+            style={styles.brand}
+          />
           <Text style={styles.title}>{ROLE_LABELS[role]}</Text>
           <Text style={styles.body}>{description}</Text>
         </Enter>
@@ -206,12 +240,8 @@ const styles = StyleSheet.create({
     color: colors.accent,
   },
   brand: {
-    ...type.footnote,
-    fontFamily: fonts.bodySemi,
-    color: colors.accent,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
     marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   title: {
     ...type.largeTitle,

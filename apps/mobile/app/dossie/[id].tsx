@@ -21,6 +21,7 @@ import type {
 } from "@linkup/shared";
 import {
   APPLICATION_STATUS_LABELS,
+  INTERVIEW_STATUS_LABELS,
   RECRUITER_TAG_LABELS,
   RECRUITER_TAGS,
 } from "@linkup/shared";
@@ -36,8 +37,10 @@ import {
   getApplication,
   getJob,
   getMe,
+  proposeInterview,
   updateApplicationTags,
 } from "../../src/lib/api";
+import { formatInterviewWhen, localDateTimeToIso } from "../../src/lib/interview-datetime";
 import { relativeTime } from "../../src/lib/relativeTime";
 import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
 
@@ -60,6 +63,8 @@ export default function DossierScreen() {
   const [freeNote, setFreeNote] = useState("");
   const [message, setMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<DecisionAction | null>(null);
+  const [interviewDate, setInterviewDate] = useState("");
+  const [interviewTime, setInterviewTime] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -183,6 +188,26 @@ export default function DossierScreen() {
     }
   }
 
+  async function onProposeInterview() {
+    if (!id) return;
+    const iso = localDateTimeToIso(interviewDate, interviewTime);
+    if (!iso) {
+      setError("Use o formato DD/MM/AAAA e HH:MM.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      setItem(await proposeInterview(id, { scheduledAt: iso }));
+      setInterviewDate("");
+      setInterviewTime("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível marcar a entrevista.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -209,6 +234,20 @@ export default function DossierScreen() {
   const isResubmit = role === "RECRUITER" && (item.submissionCount ?? 1) > 1;
   const selectedTags = new Set(item.recruiterTags ?? []);
   const notes = item.recruiterNotes ?? [];
+  const interviews = item.interviews ?? [];
+  const currentInterview =
+    interviews.find((entry) => entry.status === "PROPOSED" || entry.status === "ACCEPTED") ??
+    null;
+  const interviewLocked = currentInterview?.status === "ACCEPTED";
+  const canSchedule =
+    role === "EMPLOYER" && item.status === "ACCEPTED" && !interviewLocked;
+  const showInterviewBlock =
+    item.status === "ACCEPTED" &&
+    (role === "EMPLOYER" || role === "RECRUITER" || interviews.length > 0);
+  const candidateEmailForInterview =
+    item.candidateEmail ??
+    interviews.find((entry) => entry.candidateEmail)?.candidateEmail ??
+    null;
 
   return (
     <KeyboardAvoidingView
@@ -291,6 +330,78 @@ export default function DossierScreen() {
               {role === "EMPLOYER" ? "Mensagem registrada" : "Mensagem do processo"}
             </Text>
             <Text style={styles.messageBody}>{item.decisionMessage}</Text>
+          </View>
+        ) : null}
+
+        {showInterviewBlock ? (
+          <View style={styles.interviewBlock}>
+            <Text style={styles.actionsTitle}>Entrevista</Text>
+            {(role === "EMPLOYER" || role === "RECRUITER") && candidateEmailForInterview ? (
+              <Text style={styles.meta}>Candidato: {candidateEmailForInterview}</Text>
+            ) : null}
+
+            {currentInterview ? (
+              <View style={styles.interviewCurrent}>
+                <Text style={styles.messageLabel}>
+                  {INTERVIEW_STATUS_LABELS[currentInterview.status]}
+                </Text>
+                <Text style={styles.messageBody}>
+                  {formatInterviewWhen(currentInterview.scheduledAt)}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.meta}>Nenhuma data marcada ainda.</Text>
+            )}
+
+            {interviews.length > 0 ? (
+              <View style={styles.interviewHistory}>
+                <Text style={styles.messageLabel}>Histórico</Text>
+                {interviews.map((entry) => (
+                  <View key={entry.id} style={styles.noteEntry}>
+                    <Text style={styles.noteMeta}>
+                      {INTERVIEW_STATUS_LABELS[entry.status]} ·{" "}
+                      {formatInterviewWhen(entry.scheduledAt)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {canSchedule ? (
+              <View style={styles.scheduleForm}>
+                <Text style={styles.fieldLabel}>Dia (DD/MM/AAAA)</Text>
+                <TextInput
+                  value={interviewDate}
+                  onChangeText={setInterviewDate}
+                  placeholder="31/10/2026"
+                  placeholderTextColor={colors.muted}
+                  style={styles.scheduleInput}
+                  editable={!busy}
+                  keyboardType="numbers-and-punctuation"
+                />
+                <Text style={styles.fieldLabel}>Hora (HH:MM)</Text>
+                <TextInput
+                  value={interviewTime}
+                  onChangeText={setInterviewTime}
+                  placeholder="14:30"
+                  placeholderTextColor={colors.muted}
+                  style={styles.scheduleInput}
+                  editable={!busy}
+                  keyboardType="numbers-and-punctuation"
+                />
+                <PrimaryButton
+                  label={
+                    currentInterview?.status === "PROPOSED"
+                      ? "Atualizar data"
+                      : interviews.some((entry) => entry.status === "DECLINED")
+                        ? "Marcar outro dia"
+                        : "Marcar entrevista"
+                  }
+                  onPress={() => void onProposeInterview()}
+                  disabled={busy || interviewDate.trim().length === 0 || interviewTime.trim().length === 0}
+                />
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -535,6 +646,31 @@ const styles = StyleSheet.create({
     color: colors.ink,
     minHeight: 88,
     textAlignVertical: "top",
+  },
+  interviewBlock: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.group,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  interviewCurrent: {
+    gap: spacing.xs,
+  },
+  interviewHistory: {
+    gap: spacing.sm,
+  },
+  scheduleForm: {
+    gap: spacing.sm,
+  },
+  scheduleInput: {
+    backgroundColor: colors.surfaceElevated,
+    borderRadius: radius.input,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontFamily: fonts.body,
+    fontSize: 16,
+    color: colors.ink,
+    minHeight: 50,
   },
   error: {
     fontFamily: fonts.body,

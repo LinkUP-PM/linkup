@@ -1,6 +1,6 @@
 import "react-native-reanimated";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, Text, View } from "react-native";
+import { Platform, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -11,8 +11,10 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
+import { BrandLogo, brandLogoSizes } from "../src/components/BrandLogo";
+import { LoadingScreen } from "../src/components/LoadingScreen";
 import { getDb } from "../src/lib/db";
-import { colors } from "../src/theme/tokens";
+import { colors, spacing } from "../src/theme/tokens";
 import { screenHeaderOptions, stackScreenAnimations } from "../src/theme/navigation";
 
 export default function RootLayout() {
@@ -49,18 +51,26 @@ export default function RootLayout() {
 
   if (dbError) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}>
-        <Text style={{ color: colors.ink, textAlign: "center", fontSize: 16, lineHeight: 22 }}>{dbError}</Text>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.background,
+          padding: 24,
+          gap: spacing.lg,
+        }}
+      >
+        <BrandLogo variant="mark" size={brandLogoSizes.empty} framed />
+        <Text style={{ color: colors.ink, textAlign: "center", fontSize: 16, lineHeight: 22 }}>
+          {dbError}
+        </Text>
       </View>
     );
   }
 
   if (!ready) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
-    );
+    return <LoadingScreen />;
   }
 
   return (
@@ -76,6 +86,14 @@ export default function RootLayout() {
         <Stack.Screen name="(candidate)" options={{ headerShown: false, ...stackScreenAnimations.roleHome }} />
         <Stack.Screen name="(employer)" options={{ headerShown: false, ...stackScreenAnimations.roleHome }} />
         <Stack.Screen name="(recruiter)" options={{ headerShown: false, ...stackScreenAnimations.roleHome }} />
+        <Stack.Screen
+          name="perfil"
+          options={{
+            title: "Perfil",
+            headerBackTitle: "Voltar",
+            ...stackScreenAnimations.detail,
+          }}
+        />
         <Stack.Screen
           name="vaga/[id]"
           options={{

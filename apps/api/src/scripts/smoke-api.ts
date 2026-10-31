@@ -554,6 +554,121 @@ async function main() {
   }
   console.log("ok  POST /applications/:id/resubmit → SUBMITTED");
 
+  const forwardAgain = await fetch(`${baseUrl}/applications/${application2Id}/forward`, {
+    method: "POST",
+    headers: { ...bearer(recruiter.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ note: "Reenviado; perfil ok para entrevista." }),
+  });
+  const forwardAgainBody = await expectJson(forwardAgain, "forward-again");
+  if (forwardAgain.status !== 200 || forwardAgainBody.status !== "FORWARDED") {
+    throw new Error(
+      `POST forward after resubmit: ${forwardAgain.status} ${JSON.stringify(forwardAgainBody)}`,
+    );
+  }
+
+  const accept = await fetch(`${baseUrl}/applications/${application2Id}/decision`, {
+    method: "POST",
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "ACCEPT" }),
+  });
+  const acceptBody = await expectJson(accept, "accept");
+  if (accept.status !== 200 || acceptBody.status !== "ACCEPTED") {
+    throw new Error(`POST decision ACCEPT: ${accept.status} ${JSON.stringify(acceptBody)}`);
+  }
+  console.log("ok  POST /applications/:id/decision ACCEPT");
+
+  const futureIso = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const propose = await fetch(`${baseUrl}/applications/${application2Id}/interviews`, {
+    method: "POST",
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ scheduledAt: futureIso }),
+  });
+  const proposeBody = await expectJson(propose, "propose-interview");
+  if (propose.status !== 200 || !Array.isArray(proposeBody.interviews)) {
+    throw new Error(
+      `POST interviews: ${propose.status} ${JSON.stringify(proposeBody)}`,
+    );
+  }
+  type InterviewSmoke = { id?: string; status?: string };
+  const proposeInterviews = (proposeBody.interviews ?? []) as InterviewSmoke[];
+  const proposed = proposeInterviews.find((item) => item.status === "PROPOSED");
+  if (!proposed?.id) {
+    throw new Error(`entrevista PROPOSED ausente: ${JSON.stringify(proposeBody)}`);
+  }
+  console.log("ok  POST /applications/:id/interviews");
+
+  const decline = await fetch(`${baseUrl}/interviews/${proposed.id}/respond`, {
+    method: "POST",
+    headers: { ...bearer(candidate2.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "DECLINE" }),
+  });
+  const declineBody = await expectJson(decline, "decline-interview");
+  if (decline.status !== 200) {
+    throw new Error(
+      `POST respond DECLINE: ${decline.status} ${JSON.stringify(declineBody)}`,
+    );
+  }
+  const declineInterviews = (declineBody.interviews ?? []) as InterviewSmoke[];
+  const declined = declineInterviews.find((item) => item.id === proposed.id);
+  if (declined?.status !== "DECLINED") {
+    throw new Error(`DECLINE não gravou: ${JSON.stringify(declineBody)}`);
+  }
+  console.log("ok  POST /interviews/:id/respond DECLINE");
+
+  const futureIso2 = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
+  const propose2 = await fetch(`${baseUrl}/applications/${application2Id}/interviews`, {
+    method: "POST",
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ scheduledAt: futureIso2 }),
+  });
+  const propose2Body = await expectJson(propose2, "propose-interview-2");
+  const propose2Interviews = (propose2Body.interviews ?? []) as InterviewSmoke[];
+  const proposed2 = propose2Interviews.find((item) => item.status === "PROPOSED");
+  if (propose2.status !== 200 || !proposed2?.id) {
+    throw new Error(
+      `POST interviews (2): ${propose2.status} ${JSON.stringify(propose2Body)}`,
+    );
+  }
+
+  const acceptDate = await fetch(`${baseUrl}/interviews/${proposed2.id}/respond`, {
+    method: "POST",
+    headers: { ...bearer(candidate2.token), "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "ACCEPT" }),
+  });
+  const acceptDateBody = await expectJson(acceptDate, "accept-interview");
+  const acceptInterviews = (acceptDateBody.interviews ?? []) as InterviewSmoke[];
+  const acceptedInterview = acceptInterviews.find((item) => item.id === proposed2.id);
+  if (acceptDate.status !== 200 || acceptedInterview?.status !== "ACCEPTED") {
+    throw new Error(
+      `POST respond ACCEPT: ${acceptDate.status} ${JSON.stringify(acceptDateBody)}`,
+    );
+  }
+  console.log("ok  POST /interviews/:id/respond ACCEPT");
+
+  const locked = await fetch(`${baseUrl}/applications/${application2Id}/interviews`, {
+    method: "POST",
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      scheduledAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    }),
+  });
+  const lockedBody = await expectJson(locked, "interview-locked");
+  if (locked.status !== 409 || lockedBody.error !== "INVALID_TRANSITION") {
+    throw new Error(
+      `nova data após ACCEPTED deveria falhar: ${locked.status} ${JSON.stringify(lockedBody)}`,
+    );
+  }
+  console.log("ok  POST interviews após ACCEPTED → INVALID_TRANSITION");
+
+  const agenda = await fetch(`${baseUrl}/interviews`, {
+    headers: bearer(recruiter.token),
+  });
+  const agendaBody = await expectJson(agenda, "list-interviews");
+  if (agenda.status !== 200 || !Array.isArray(agendaBody.items) || agendaBody.items.length < 2) {
+    throw new Error(`GET /interviews: ${agenda.status} ${JSON.stringify(agendaBody)}`);
+  }
+  console.log("ok  GET /interviews");
+
   const logout = await fetch(`${baseUrl}/auth/session`, {
     method: "DELETE",
     headers: bearer(candidate2.token),

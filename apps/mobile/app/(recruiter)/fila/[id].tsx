@@ -239,6 +239,7 @@ export default function RecruiterQueueScreen() {
 
       {!hasApplications ? (
         <EmptyState
+          brand
           title="Ninguém na fila"
           body="Quando um candidato enviar o PDF para esta vaga, a candidatura entra aqui para triagem."
         />

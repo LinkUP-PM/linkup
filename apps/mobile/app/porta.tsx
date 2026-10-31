@@ -4,11 +4,12 @@ import { useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import type { Role } from "@linkup/shared";
 import { ROLE_LABELS } from "@linkup/shared";
+import { BrandLogo, brandLogoSizes } from "../src/components/BrandLogo";
 import { Enter } from "../src/components/Enter";
 import { GroupedSection } from "../src/components/GroupedSection";
 import { loginHrefForRole } from "../src/lib/role";
 import { enter } from "../src/theme/motion";
-import { colors, fonts, spacing, type } from "../src/theme/tokens";
+import { colors, spacing, type } from "../src/theme/tokens";
 
 const OPTIONS: { role: Role; description: string }[] = [
   {
@@ -50,7 +51,11 @@ export default function PortaScreen() {
       </Pressable>
 
       <Enter variant="fadeUp" delay={enter.delays.header}>
-        <Text style={styles.brand}>LinkUP</Text>
+        <BrandLogo
+          variant="wordmark"
+          width={brandLogoSizes.compact}
+          style={styles.brand}
+        />
         <Text style={styles.title}>Como você entra?</Text>
         <Text style={styles.body}>
           Escolha a porta do seu papel. Em seguida entre ou crie a conta.
@@ -92,11 +97,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   brand: {
-    ...type.footnote,
-    fontFamily: fonts.bodySemi,
-    color: colors.accent,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
     marginBottom: spacing.sm,
     marginHorizontal: spacing.lg,
   },

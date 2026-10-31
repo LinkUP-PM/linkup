@@ -85,6 +85,35 @@ CREATE TABLE IF NOT EXISTS recruiter_note_entries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_recruiter_notes_app_created ON recruiter_note_entries(application_id, created_at);
+
+CREATE TABLE IF NOT EXISTS resumes (
+  id TEXT PRIMARY KEY NOT NULL,
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  label TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_uri TEXT NOT NULL,
+  file_size_bytes INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_resumes_user_kind ON resumes(user_id, kind);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_resumes_user_main ON resumes(user_id) WHERE kind = 'MAIN';
+
+CREATE TABLE IF NOT EXISTS interviews (
+  id TEXT PRIMARY KEY NOT NULL,
+  application_id TEXT NOT NULL,
+  scheduled_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'PROPOSED',
+  created_at TEXT NOT NULL,
+  responded_at TEXT,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_interviews_app_created ON interviews(application_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_interviews_status_scheduled ON interviews(status, scheduled_at);
 `;
 
 type SqlRunner = {
@@ -127,5 +156,44 @@ export async function applySchemaMigrations(db: SqlRunner): Promise<void> {
   );
   await db.runAsync(
     `CREATE INDEX IF NOT EXISTS idx_applications_status_created ON applications(status, created_at)`,
+  );
+
+  await db.runAsync(
+    `CREATE TABLE IF NOT EXISTS resumes (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      label TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_uri TEXT NOT NULL,
+      file_size_bytes INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+  );
+  await db.runAsync(
+    `CREATE INDEX IF NOT EXISTS idx_resumes_user_kind ON resumes(user_id, kind)`,
+  );
+  await db.runAsync(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_resumes_user_main ON resumes(user_id) WHERE kind = 'MAIN'`,
+  );
+
+  await db.runAsync(
+    `CREATE TABLE IF NOT EXISTS interviews (
+      id TEXT PRIMARY KEY NOT NULL,
+      application_id TEXT NOT NULL,
+      scheduled_at TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PROPOSED',
+      created_at TEXT NOT NULL,
+      responded_at TEXT,
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+    )`,
+  );
+  await db.runAsync(
+    `CREATE INDEX IF NOT EXISTS idx_interviews_app_created ON interviews(application_id, created_at)`,
+  );
+  await db.runAsync(
+    `CREATE INDEX IF NOT EXISTS idx_interviews_status_scheduled ON interviews(status, scheduled_at)`,
   );
 }

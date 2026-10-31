@@ -68,6 +68,7 @@ export default function EmployerShortlistScreen() {
   if (!loading && items.length === 0) {
     return (
       <EmptyState
+        brand
         title="Nenhum indicado ainda"
         body="O recrutador encaminha candidaturas da fila. Só quem foi encaminhado aparece aqui."
       />

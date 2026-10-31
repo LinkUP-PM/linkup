@@ -6,6 +6,7 @@ import { analysesRoutes } from "./routes/analyses.js";
 import { applicationsRoutes } from "./routes/applications.js";
 import { authRoutes } from "./routes/auth.js";
 import { healthRoutes } from "./routes/health.js";
+import { interviewsRoutes } from "./routes/interviews.js";
 import { jobsRoutes } from "./routes/jobs.js";
 import { meRoutes } from "./routes/me.js";
 
@@ -67,6 +68,7 @@ export async function buildApp() {
   await app.register(meRoutes);
   await app.register(jobsRoutes);
   await app.register(applicationsRoutes);
+  await app.register(interviewsRoutes);
   await app.register(analysesRoutes);
   return app;
 }

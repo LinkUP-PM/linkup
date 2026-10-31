@@ -1,6 +1,7 @@
-import { Image, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, type Href } from "expo-router";
+import { BrandLogo } from "../src/components/BrandLogo";
 import { Enter } from "../src/components/Enter";
 import { GroupedSection, GroupedRow } from "../src/components/GroupedSection";
 import { PrimaryButton } from "../src/components/PrimaryButton";
@@ -13,14 +14,11 @@ const STEPS = [
   "O recrutador tria e o contratante decide",
 ] as const;
 
-const LOGO_RATIO = 312 / 1048;
-
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const logoWidth = Math.min(width * 0.88, 420);
-  const logoHeight = logoWidth * LOGO_RATIO;
 
   return (
     <View
@@ -33,12 +31,7 @@ export default function HomeScreen() {
       ]}
     >
       <Enter variant="fade" delay={enter.delays.logo}>
-        <Image
-          source={require("../assets/logo.png")}
-          style={[styles.brand, { width: logoWidth, height: logoHeight }]}
-          accessibilityLabel="LinkUP"
-          resizeMode="contain"
-        />
+        <BrandLogo variant="wordmark" width={logoWidth} style={styles.brand} />
       </Enter>
 
       <Enter variant="fadeUp" delay={enter.delays.body} style={styles.content}>

@@ -8,12 +8,21 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
-import type { ApplicationDetail, ApplicationStatus } from "@linkup/shared";
-import { APPLICATION_STATUS_LABELS } from "@linkup/shared";
+import type { ApplicationDetail, ApplicationStatus, Resume } from "@linkup/shared";
+import { APPLICATION_STATUS_LABELS, INTERVIEW_STATUS_LABELS } from "@linkup/shared";
 import { AnalyzingOverlay } from "../../src/components/AnalyzingOverlay";
 import { ApplicationStatusPill } from "../../src/components/ApplicationStatusPill";
+import { PickResumeSheet } from "../../src/components/PickResumeSheet";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
-import { getApplication, resubmitApplication } from "../../src/lib/api";
+import { SaveResumeSheet } from "../../src/components/SaveResumeSheet";
+import {
+  getApplication,
+  getResumeUploadInput,
+  respondInterview,
+  resubmitApplication,
+  type UploadFileInput,
+} from "../../src/lib/api";
+import { formatInterviewWhen } from "../../src/lib/interview-datetime";
 import { pickPdf } from "../../src/lib/pick-pdf";
 import { relativeTime } from "../../src/lib/relativeTime";
 import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
@@ -36,7 +45,7 @@ function statusHint(status: ApplicationStatus): string {
     case "ADJUSTMENT_REQUESTED":
       return "O contratante pediu ajustes. Reenvie o PDF com as mudanças.";
     case "ACCEPTED":
-      return "O contratante aceitou esta candidatura.";
+      return "O contratante aceitou esta candidatura. Se houver data de entrevista, ela aparece abaixo.";
     case "REJECTED":
       return "O contratante recusou esta candidatura.";
   }
@@ -66,6 +75,8 @@ export default function ApplicationDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState<UploadFileInput | null>(null);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -87,8 +98,39 @@ export default function ApplicationDetailScreen() {
     }, [load]),
   );
 
-  async function pickAndResubmit() {
+  async function resubmitWithFile(file: UploadFileInput) {
     if (!id) return;
+    setPendingFile(null);
+    setPickerOpen(false);
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await resubmitApplication(id, file);
+      setItem(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível reenviar o PDF.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function resubmitWithResume(resume: Resume) {
+    setPickerOpen(false);
+    setError(null);
+    setBusy(true);
+    try {
+      const file = await getResumeUploadInput(resume.id);
+      const updated = await resubmitApplication(id!, file);
+      setItem(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível reenviar o PDF.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function pickAdHocPdf() {
+    setPickerOpen(false);
     setError(null);
     let file: Awaited<ReturnType<typeof pickPdf>>;
     try {
@@ -100,17 +142,28 @@ export default function ApplicationDetailScreen() {
       return;
     }
     if (!file) return;
+    setPendingFile(file);
+  }
 
+  async function onRespondInterview(action: "ACCEPT" | "DECLINE") {
+    const proposed = (item?.interviews ?? []).find((entry) => entry.status === "PROPOSED");
+    if (!proposed) return;
     setBusy(true);
+    setError(null);
     try {
-      const updated = await resubmitApplication(id, file);
-      setItem(updated);
+      setItem(await respondInterview(proposed.id, { action }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível reenviar o PDF.");
+      setError(
+        err instanceof Error ? err.message : "Não foi possível responder à data da entrevista.",
+      );
     } finally {
       setBusy(false);
     }
   }
+
+  const handleSaveError = useCallback((message: string) => {
+    setError(message);
+  }, []);
 
   if (loading) {
     return (
@@ -135,6 +188,12 @@ export default function ApplicationDetailScreen() {
     item.status === "ADJUSTMENT_REQUESTED" ||
     item.status === "REJECTED" ||
     (item.decisionMessage != null && item.decisionMessage.length > 0);
+  const interviews = item.interviews ?? [];
+  const currentInterview =
+    interviews.find((entry) => entry.status === "PROPOSED" || entry.status === "ACCEPTED") ??
+    null;
+  const lastDeclined =
+    !currentInterview && interviews.find((entry) => entry.status === "DECLINED");
 
   return (
     <>
@@ -189,12 +248,59 @@ export default function ApplicationDetailScreen() {
           </View>
         ) : null}
 
+        {item.status === "ACCEPTED" ? (
+          <View style={styles.interviewBox}>
+            <Text style={styles.messageLabel}>Entrevista</Text>
+            {currentInterview?.status === "PROPOSED" ? (
+              <>
+                <Text style={styles.messageBody}>
+                  O contratante propôs {formatInterviewWhen(currentInterview.scheduledAt)}.
+                </Text>
+                <PrimaryButton
+                  label="Aceitar data"
+                  onPress={() => void onRespondInterview("ACCEPT")}
+                  disabled={busy}
+                />
+                <PrimaryButton
+                  label="Recusar data"
+                  onPress={() => void onRespondInterview("DECLINE")}
+                  disabled={busy}
+                  variant="secondary"
+                />
+              </>
+            ) : currentInterview?.status === "ACCEPTED" ? (
+              <Text style={styles.messageBody}>
+                Data confirmada: {formatInterviewWhen(currentInterview.scheduledAt)}.
+              </Text>
+            ) : lastDeclined ? (
+              <Text style={styles.messageBody}>
+                Você recusou {formatInterviewWhen(lastDeclined.scheduledAt)}. Aguarde o
+                contratante marcar outro dia.
+              </Text>
+            ) : (
+              <Text style={styles.messageBody}>
+                Ainda não há data de entrevista. O contratante define o dia.
+              </Text>
+            )}
+            {interviews.length > 1 ? (
+              <View style={styles.interviewHistory}>
+                {interviews.map((entry) => (
+                  <Text key={entry.id} style={styles.meta}>
+                    {INTERVIEW_STATUS_LABELS[entry.status]} ·{" "}
+                    {formatInterviewWhen(entry.scheduledAt)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
         {error ? <Text style={styles.errorInline}>{error}</Text> : null}
 
         {item.status === "ADJUSTMENT_REQUESTED" ? (
           <PrimaryButton
             label="Reenviar PDF ajustado"
-            onPress={() => void pickAndResubmit()}
+            onPress={() => setPickerOpen(true)}
             disabled={busy}
           />
         ) : null}
@@ -205,6 +311,27 @@ export default function ApplicationDetailScreen() {
           variant="secondary"
         />
       </ScrollView>
+      <PickResumeSheet
+        visible={pickerOpen}
+        title="Reenviar com qual currículo?"
+        extraLabel="Enviar um PDF ajustado"
+        onExtra={() => void pickAdHocPdf()}
+        emptyActionLabel="Enviar um PDF ajustado"
+        onEmptyAction={() => void pickAdHocPdf()}
+        onSelect={(resume) => void resubmitWithResume(resume)}
+        onClose={() => setPickerOpen(false)}
+      />
+      <SaveResumeSheet
+        visible={pendingFile != null}
+        file={pendingFile}
+        onSkip={() => {
+          if (pendingFile) void resubmitWithFile(pendingFile);
+        }}
+        onSaved={() => {
+          if (pendingFile) void resubmitWithFile(pendingFile);
+        }}
+        onError={handleSaveError}
+      />
       <AnalyzingOverlay visible={busy} />
     </>
   );
@@ -305,6 +432,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.ink,
     lineHeight: 22,
+  },
+  interviewBox: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.group,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  interviewHistory: {
+    gap: spacing.xs,
   },
   error: {
     fontFamily: fonts.body,
