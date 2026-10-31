@@ -62,6 +62,16 @@ export default function CandidateTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="agenda"
+        options={{
+          title: "Agenda",
+          headerTitle: () => <BrandHeaderTitle title="Agenda" />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="historico"
         options={{
           title: "Histórico",

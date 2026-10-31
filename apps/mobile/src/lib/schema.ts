@@ -114,6 +114,18 @@ CREATE TABLE IF NOT EXISTS interviews (
 
 CREATE INDEX IF NOT EXISTS idx_interviews_app_created ON interviews(application_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_interviews_status_scheduled ON interviews(status, scheduled_at);
+
+CREATE TABLE IF NOT EXISTS application_events (
+  id TEXT PRIMARY KEY NOT NULL,
+  application_id TEXT NOT NULL,
+  type TEXT NOT NULL,
+  at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_application_events_app_at ON application_events(application_id, at);
+CREATE INDEX IF NOT EXISTS idx_application_events_at ON application_events(at);
 `;
 
 type SqlRunner = {
@@ -195,5 +207,50 @@ export async function applySchemaMigrations(db: SqlRunner): Promise<void> {
   );
   await db.runAsync(
     `CREATE INDEX IF NOT EXISTS idx_interviews_status_scheduled ON interviews(status, scheduled_at)`,
+  );
+
+  await db.runAsync(
+    `CREATE TABLE IF NOT EXISTS application_events (
+      id TEXT PRIMARY KEY NOT NULL,
+      application_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+    )`,
+  );
+  await db.runAsync(
+    `CREATE INDEX IF NOT EXISTS idx_application_events_app_at ON application_events(application_id, at)`,
+  );
+  await db.runAsync(
+    `CREATE INDEX IF NOT EXISTS idx_application_events_at ON application_events(at)`,
+  );
+
+  // Backfill leve: SUBMITTED a partir de created_at; eventos de entrevista a partir de interviews.
+  await db.runAsync(
+    `INSERT INTO application_events (id, application_id, type, at, created_at)
+     SELECT 'bf-sub-' || id, id, 'SUBMITTED', created_at, created_at
+     FROM applications a
+     WHERE NOT EXISTS (
+       SELECT 1 FROM application_events e
+       WHERE e.application_id = a.id AND e.type = 'SUBMITTED'
+     )`,
+  );
+  await db.runAsync(
+    `INSERT INTO application_events (id, application_id, type, at, created_at)
+     SELECT 'bf-iv-' || id,
+       application_id,
+       CASE status
+         WHEN 'ACCEPTED' THEN 'INTERVIEW_ACCEPTED'
+         WHEN 'DECLINED' THEN 'INTERVIEW_DECLINED'
+         ELSE 'INTERVIEW_PROPOSED'
+       END,
+       scheduled_at,
+       created_at
+     FROM interviews i
+     WHERE NOT EXISTS (
+       SELECT 1 FROM application_events e
+       WHERE e.id = 'bf-iv-' || i.id
+     )`,
   );
 }

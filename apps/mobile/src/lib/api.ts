@@ -1,8 +1,10 @@
 import type {
+  AgendaItem,
   AnalysisDetail,
   AnalysisResult,
   AnalysisSummary,
   ApplicationDetail,
+  ApplicationEventType,
   ApplicationStatus,
   ApplicationSummary,
   AuthResponse,
@@ -306,6 +308,24 @@ async function appendNoteEntry(
     text,
     action,
     nowIso(),
+  );
+}
+
+async function appendApplicationEvent(
+  applicationId: string,
+  type: ApplicationEventType,
+  atIso?: string,
+): Promise<void> {
+  const db = await getDb();
+  const createdAt = nowIso();
+  await db.runAsync(
+    `INSERT INTO application_events (id, application_id, type, at, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    await createId(),
+    applicationId,
+    type,
+    atIso ?? createdAt,
+    createdAt,
   );
 }
 
@@ -1004,6 +1024,8 @@ export async function applyToJob(
     fail("ALREADY_APPLIED", "Você já se candidatou a esta vaga.");
   }
 
+  await appendApplicationEvent(id, "SUBMITTED", createdAt);
+
   return {
     id,
     jobId,
@@ -1160,6 +1182,7 @@ export async function discardApplication(
     updatedAt,
     id,
   );
+  await appendApplicationEvent(id, "DISCARDED", updatedAt);
 
   const updated = await loadApplication(id);
   if (!updated) fail("NOT_FOUND", "Candidatura não encontrada.");
@@ -1191,6 +1214,7 @@ export async function forwardApplication(
     updatedAt,
     id,
   );
+  await appendApplicationEvent(id, "FORWARDED", updatedAt);
 
   const updated = await loadApplication(id);
   if (!updated) fail("NOT_FOUND", "Candidatura não encontrada.");
@@ -1244,11 +1268,101 @@ export async function decideApplication(
     updatedAt,
     id,
   );
+  const eventType: ApplicationEventType =
+    status === "ACCEPTED"
+      ? "ACCEPTED"
+      : status === "REJECTED"
+        ? "REJECTED"
+        : "ADJUSTMENT_REQUESTED";
+  await appendApplicationEvent(id, eventType, updatedAt);
 
   const updated = await loadApplication(id);
   if (!updated) fail("NOT_FOUND", "Candidatura não encontrada.");
   const analysis = await loadAnalysis(updated.analysis_id);
   return toApplicationDetail(updated, "EMPLOYER", analysis, undefined, []);
+}
+
+type AgendaEventRow = {
+  id: string;
+  application_id: string;
+  type: ApplicationEventType;
+  at: string;
+  created_at: string;
+  job_id: string;
+  job_title: string;
+  candidate_email?: string | null;
+  interview_status?: InterviewStatus | null;
+};
+
+function toAgendaItem(row: AgendaEventRow, includeEmail: boolean): AgendaItem {
+  const item: AgendaItem = {
+    id: row.id,
+    applicationId: row.application_id,
+    jobId: row.job_id,
+    jobTitle: row.job_title,
+    type: row.type,
+    date: row.at,
+    createdAt: row.created_at,
+  };
+  if (includeEmail && row.candidate_email) {
+    item.candidateEmail = row.candidate_email;
+  }
+  if (row.interview_status) {
+    item.interviewStatus = row.interview_status;
+  }
+  return item;
+}
+
+export async function listAgenda(): Promise<AgendaItem[]> {
+  const user = await requireUser();
+  const db = await getDb();
+
+  const baseSelect = `
+    SELECT e.id, e.application_id, e.type, e.at, e.created_at,
+           a.job_id as job_id, j.title as job_title,
+           u.email as candidate_email,
+           (
+             SELECT i.status FROM interviews i
+             WHERE i.application_id = a.id
+               AND i.status IN ('PROPOSED', 'ACCEPTED')
+             ORDER BY i.created_at DESC
+             LIMIT 1
+           ) as interview_status
+    FROM application_events e
+    JOIN applications a ON a.id = e.application_id
+    JOIN jobs j ON j.id = a.job_id
+    JOIN users u ON u.id = a.candidate_id
+  `;
+
+  if (user.role === "CANDIDATE") {
+    const rows = await db.getAllAsync<AgendaEventRow>(
+      `${baseSelect}
+       WHERE a.candidate_id = ?
+       ORDER BY e.at ASC, e.created_at ASC`,
+      user.id,
+    );
+    return rows.map((row) => toAgendaItem(row, false));
+  }
+
+  if (user.role === "EMPLOYER") {
+    const rows = await db.getAllAsync<AgendaEventRow>(
+      `${baseSelect}
+       WHERE j.employer_id = ?
+       ORDER BY e.at ASC, e.created_at ASC`,
+      user.id,
+    );
+    return rows.map((row) => toAgendaItem(row, true));
+  }
+
+  if (user.role === "RECRUITER") {
+    const rows = await db.getAllAsync<AgendaEventRow>(
+      `${baseSelect}
+       ORDER BY e.at ASC, e.created_at ASC`,
+    );
+    return rows.map((row) => toAgendaItem(row, true));
+  }
+
+  fail("FORBIDDEN", "Esta ação não está disponível para o seu papel.");
 }
 
 export async function listInterviews(): Promise<Interview[]> {
@@ -1378,6 +1492,7 @@ export async function proposeInterview(
     );
   }
 
+  await appendApplicationEvent(applicationId, "INTERVIEW_PROPOSED", scheduledAt);
   await db.runAsync(`UPDATE applications SET updated_at = ? WHERE id = ?`, now, applicationId);
 
   const updated = await loadApplication(applicationId);
@@ -1420,6 +1535,8 @@ export async function respondInterview(
   }
 
   const status: InterviewStatus = input.action === "ACCEPT" ? "ACCEPTED" : "DECLINED";
+  const eventType: ApplicationEventType =
+    input.action === "ACCEPT" ? "INTERVIEW_ACCEPTED" : "INTERVIEW_DECLINED";
   const respondedAt = nowIso();
   await db.runAsync(
     `UPDATE interviews SET status = ?, responded_at = ? WHERE id = ?`,
@@ -1427,6 +1544,7 @@ export async function respondInterview(
     respondedAt,
     interviewId,
   );
+  await appendApplicationEvent(interview.application_id, eventType, interview.scheduled_at);
   await db.runAsync(
     `UPDATE applications SET updated_at = ? WHERE id = ?`,
     respondedAt,
@@ -1483,6 +1601,7 @@ export async function resubmitApplication(
     updatedAt,
     id,
   );
+  await appendApplicationEvent(id, "RESUBMITTED", updatedAt);
 
   return {
     id: row.id,

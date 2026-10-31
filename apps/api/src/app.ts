@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { config } from "./config.js";
+import { agendaRoutes } from "./routes/agenda.js";
 import { analysesRoutes } from "./routes/analyses.js";
 import { applicationsRoutes } from "./routes/applications.js";
 import { authRoutes } from "./routes/auth.js";
@@ -69,6 +70,7 @@ export async function buildApp() {
   await app.register(jobsRoutes);
   await app.register(applicationsRoutes);
   await app.register(interviewsRoutes);
+  await app.register(agendaRoutes);
   await app.register(analysesRoutes);
   return app;
 }

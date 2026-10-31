@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { Interview, InterviewRespondAction, InterviewStatus } from "@linkup/shared";
+import { appendApplicationEvent } from "../lib/application-events.js";
 import { prisma } from "../lib/prisma.js";
 import { httpError, requireRole, requireUser } from "../lib/http.js";
 import { toApplicationDetail } from "./applications.js";
@@ -162,6 +163,7 @@ export async function interviewsRoutes(app: FastifyInstance) {
       });
     }
 
+    await appendApplicationEvent(id, "INTERVIEW_PROPOSED", scheduledAt);
     await prisma.application.update({
       where: { id },
       data: { updatedAt: new Date() },
@@ -207,11 +209,14 @@ export async function interviewsRoutes(app: FastifyInstance) {
     }
 
     const status: InterviewStatus = action === "ACCEPT" ? "ACCEPTED" : "DECLINED";
+    const eventType =
+      action === "ACCEPT" ? ("INTERVIEW_ACCEPTED" as const) : ("INTERVIEW_DECLINED" as const);
     const respondedAt = new Date();
     await prisma.interview.update({
       where: { id },
       data: { status, respondedAt },
     });
+    await appendApplicationEvent(interview.applicationId, eventType, interview.scheduledAt);
     await prisma.application.update({
       where: { id: interview.applicationId },
       data: { updatedAt: respondedAt },

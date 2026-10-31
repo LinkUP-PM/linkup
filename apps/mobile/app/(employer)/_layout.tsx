@@ -42,6 +42,16 @@ export default function EmployerTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="agenda"
+        options={{
+          title: "Agenda",
+          headerTitle: () => <BrandHeaderTitle title="Agenda" />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="calendar-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="nova"
         options={{
           title: "Nova vaga",
@@ -57,14 +67,6 @@ export default function EmployerTabsLayout() {
           href: null,
           title: "Indicados",
           headerTitle: "Indicados",
-        }}
-      />
-      <Tabs.Screen
-        name="agenda"
-        options={{
-          href: null,
-          title: "Agenda",
-          headerTitle: "Agenda de entrevistas",
         }}
       />
     </Tabs>

@@ -88,15 +88,6 @@ export default function RecruiterHomeScreen() {
         <Text style={styles.inboxLink}>Abrir inbox global</Text>
       </Pressable>
 
-      <Pressable
-        style={({ pressed }) => [styles.agendaCard, pressed && styles.pressed]}
-        onPress={() => router.push("/(recruiter)/agenda" as Href)}
-      >
-        <Text style={styles.inboxLabel}>Agenda</Text>
-        <Text style={styles.inboxCount}>Entrevistas marcadas</Text>
-        <Text style={styles.inboxLink}>Acompanhar datas e respostas</Text>
-      </Pressable>
-
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.error}>{error}</Text>
@@ -130,7 +121,7 @@ export default function RecruiterHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     paddingTop: spacing.md,
-    paddingBottom: spacing.xxl,
+    paddingBottom: spacing.tabBarClearance,
     flexGrow: 1,
     backgroundColor: colors.background,
   },
@@ -142,14 +133,6 @@ const styles = StyleSheet.create({
   },
   inboxCard: {
     backgroundColor: colors.accentSoft,
-    borderRadius: radius.group,
-    padding: spacing.lg,
-    gap: spacing.xs,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  agendaCard: {
-    backgroundColor: colors.surface,
     borderRadius: radius.group,
     padding: spacing.lg,
     gap: spacing.xs,

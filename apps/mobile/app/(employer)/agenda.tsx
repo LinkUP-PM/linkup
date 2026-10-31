@@ -8,19 +8,16 @@ import {
   View,
 } from "react-native";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
-import type { Interview } from "@linkup/shared";
-import { INTERVIEW_STATUS_LABELS } from "@linkup/shared";
+import type { AgendaItem } from "@linkup/shared";
+import { AgendaCalendar } from "../../src/components/AgendaCalendar";
 import { EmptyState } from "../../src/components/EmptyState";
-import { GroupedSection } from "../../src/components/GroupedSection";
-import { ListRow } from "../../src/components/ListRow";
 import { LoadingScreen } from "../../src/components/LoadingScreen";
-import { listInterviews } from "../../src/lib/api";
-import { formatInterviewWhen } from "../../src/lib/interview-datetime";
+import { listAgenda } from "../../src/lib/api";
 import { colors, fonts, radius, spacing } from "../../src/theme/tokens";
 
 export default function EmployerAgendaScreen() {
   const router = useRouter();
-  const [items, setItems] = useState<Interview[]>([]);
+  const [items, setItems] = useState<AgendaItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -28,7 +25,7 @@ export default function EmployerAgendaScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setItems(await listInterviews());
+      setItems(await listAgenda());
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível carregar a agenda.");
@@ -55,9 +52,8 @@ export default function EmployerAgendaScreen() {
   if (!loading && items.length === 0 && !error) {
     return (
       <EmptyState
-        brand
-        title="Nenhuma entrevista ainda"
-        body="Aceite um candidato no dossiê e marque o dia da entrevista."
+        title="Agenda vazia"
+        body="Envios, decisões e entrevistas das suas vagas aparecem aqui depois que o processo avançar."
       />
     );
   }
@@ -76,17 +72,11 @@ export default function EmployerAgendaScreen() {
         </View>
       ) : null}
 
-      <GroupedSection header="Entrevistas das suas vagas">
-        {items.map((item) => (
-          <ListRow
-            key={item.id}
-            title={item.jobTitle}
-            subtitle={item.candidateEmail ?? "Candidato"}
-            meta={`${formatInterviewWhen(item.scheduledAt)} · ${INTERVIEW_STATUS_LABELS[item.status]}`}
-            onPress={() => router.push(`/dossie/${item.applicationId}` as Href)}
-          />
-        ))}
-      </GroupedSection>
+      <AgendaCalendar
+        items={items}
+        showCandidateEmail
+        onOpenItem={(item) => router.push(`/dossie/${item.applicationId}` as Href)}
+      />
     </ScrollView>
   );
 }

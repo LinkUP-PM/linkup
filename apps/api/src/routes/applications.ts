@@ -10,6 +10,7 @@ import type {
   Role,
 } from "@linkup/shared";
 import { normalizeRecruiterTags } from "@linkup/shared";
+import { appendApplicationEvent } from "../lib/application-events.js";
 import { prisma } from "../lib/prisma.js";
 import { httpError, requireRole, requireUser } from "../lib/http.js";
 import { readPdfUpload } from "../lib/pdf-upload.js";
@@ -428,6 +429,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
       },
       include: applicationInclude,
     });
+    await appendApplicationEvent(id, "DISCARDED");
 
     return toApplicationDetail(updated, "RECRUITER");
   });
@@ -461,6 +463,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
       },
       include: applicationInclude,
     });
+    await appendApplicationEvent(id, "FORWARDED");
 
     return toApplicationDetail(updated, "RECRUITER");
   });
@@ -524,6 +527,14 @@ export async function applicationsRoutes(app: FastifyInstance) {
       },
       include: applicationInclude,
     });
+    await appendApplicationEvent(
+      id,
+      status === "ACCEPTED"
+        ? "ACCEPTED"
+        : status === "REJECTED"
+          ? "REJECTED"
+          : "ADJUSTMENT_REQUESTED",
+    );
 
     return toApplicationDetail(updated, "EMPLOYER");
   });
@@ -566,6 +577,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
       },
       include: { job: { select: { title: true, employerId: true } } },
     });
+    await appendApplicationEvent(id, "RESUBMITTED");
 
     return toApplicationSummary(updated);
   });

@@ -68,17 +68,6 @@ export default function EmployerHomeScreen() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
-      <Pressable
-        style={({ pressed }) => [styles.agendaCard, pressed && styles.pressed]}
-        onPress={() => router.push("/(employer)/agenda" as Href)}
-      >
-        <Text style={styles.agendaLabel}>Agenda</Text>
-        <Text style={styles.agendaBody}>
-          Veja as datas que você marcou e o status da resposta do candidato.
-        </Text>
-        <Text style={styles.agendaLink}>Abrir agenda de entrevistas</Text>
-      </Pressable>
-
       {error ? (
         <View style={styles.errorBox}>
           <Text style={styles.error}>{error}</Text>
@@ -112,34 +101,6 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.tabBarClearance,
     flexGrow: 1,
     backgroundColor: colors.background,
-  },
-  agendaCard: {
-    backgroundColor: colors.accentSoft,
-    borderRadius: radius.group,
-    padding: spacing.lg,
-    gap: spacing.xs,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  pressed: { opacity: 0.85 },
-  agendaLabel: {
-    fontFamily: fonts.bodySemi,
-    fontSize: 12,
-    color: colors.accent,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-  },
-  agendaBody: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    color: colors.ink,
-    lineHeight: 22,
-  },
-  agendaLink: {
-    fontFamily: fonts.bodySemi,
-    fontSize: 14,
-    color: colors.accent,
-    marginTop: spacing.xs,
   },
   errorBox: {
     gap: spacing.sm,

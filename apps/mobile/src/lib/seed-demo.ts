@@ -41,6 +41,21 @@ const IDS = {
   noteBruno: "demo-note-bruno-mobile",
   noteCarla: "demo-note-carla-mobile",
   interviewBrunoData: "demo-interview-bruno-data",
+  evtAnaMobileSub: "demo-evt-ana-mobile-sub",
+  evtAnaDataSub: "demo-evt-ana-data-sub",
+  evtAnaDataFwd: "demo-evt-ana-data-fwd",
+  evtAnaDataAdj: "demo-evt-ana-data-adj",
+  evtBrunoMobileSub: "demo-evt-bruno-mobile-sub",
+  evtBrunoMobileFwd: "demo-evt-bruno-mobile-fwd",
+  evtBrunoDataSub: "demo-evt-bruno-data-sub",
+  evtBrunoDataFwd: "demo-evt-bruno-data-fwd",
+  evtBrunoDataAcc: "demo-evt-bruno-data-acc",
+  evtBrunoDataIv: "demo-evt-bruno-data-iv",
+  evtCarlaMobileSub: "demo-evt-carla-mobile-sub",
+  evtCarlaMobileDisc: "demo-evt-carla-mobile-disc",
+  evtCarlaDataSub: "demo-evt-carla-data-sub",
+  evtCarlaDataFwd: "demo-evt-carla-data-fwd",
+  evtCarlaDataRej: "demo-evt-carla-data-rej",
 } as const;
 
 const T0 = "2026-10-20T12:00:00.000Z";
@@ -224,6 +239,58 @@ async function seedDemoInterview(db: SeedDatabase): Promise<void> {
   );
 }
 
+async function seedDemoEvents(db: SeedDatabase): Promise<void> {
+  const events: Array<{
+    id: string;
+    applicationId: string;
+    type: string;
+    at: string;
+  }> = [
+    { id: IDS.evtAnaMobileSub, applicationId: IDS.appAnaMobile, type: "SUBMITTED", at: T2 },
+    { id: IDS.evtAnaDataSub, applicationId: IDS.appAnaData, type: "SUBMITTED", at: T3 },
+    { id: IDS.evtAnaDataFwd, applicationId: IDS.appAnaData, type: "FORWARDED", at: T3 },
+    {
+      id: IDS.evtAnaDataAdj,
+      applicationId: IDS.appAnaData,
+      type: "ADJUSTMENT_REQUESTED",
+      at: T3,
+    },
+    { id: IDS.evtBrunoMobileSub, applicationId: IDS.appBrunoMobile, type: "SUBMITTED", at: T4 },
+    { id: IDS.evtBrunoMobileFwd, applicationId: IDS.appBrunoMobile, type: "FORWARDED", at: T4 },
+    { id: IDS.evtBrunoDataSub, applicationId: IDS.appBrunoData, type: "SUBMITTED", at: T5 },
+    { id: IDS.evtBrunoDataFwd, applicationId: IDS.appBrunoData, type: "FORWARDED", at: T5 },
+    { id: IDS.evtBrunoDataAcc, applicationId: IDS.appBrunoData, type: "ACCEPTED", at: T5 },
+    {
+      id: IDS.evtBrunoDataIv,
+      applicationId: IDS.appBrunoData,
+      type: "INTERVIEW_PROPOSED",
+      at: T_INTERVIEW,
+    },
+    { id: IDS.evtCarlaMobileSub, applicationId: IDS.appCarlaMobile, type: "SUBMITTED", at: T6 },
+    { id: IDS.evtCarlaMobileDisc, applicationId: IDS.appCarlaMobile, type: "DISCARDED", at: T6 },
+    { id: IDS.evtCarlaDataSub, applicationId: IDS.appCarlaData, type: "SUBMITTED", at: T7 },
+    { id: IDS.evtCarlaDataFwd, applicationId: IDS.appCarlaData, type: "FORWARDED", at: T7 },
+    { id: IDS.evtCarlaDataRej, applicationId: IDS.appCarlaData, type: "REJECTED", at: T7 },
+  ];
+
+  for (const event of events) {
+    const app = await db.getFirstAsync<{ id: string }>(
+      `SELECT id FROM applications WHERE id = ?`,
+      event.applicationId,
+    );
+    if (!app) continue;
+    await db.runAsync(
+      `INSERT OR IGNORE INTO application_events (id, application_id, type, at, created_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      event.id,
+      event.applicationId,
+      event.type,
+      event.at,
+      event.at,
+    );
+  }
+}
+
 /**
  * Idempotent demo seed for local SQLite. Fixed IDs + INSERT OR IGNORE.
  * Does not delete or overwrite user-created data.
@@ -239,6 +306,7 @@ export async function seedDemo(db: SeedDatabase): Promise<void> {
   );
   if ((existing?.c ?? 0) >= 5) {
     await seedDemoInterview(db);
+    await seedDemoEvents(db);
     return;
   }
 
@@ -500,4 +568,5 @@ export async function seedDemo(db: SeedDatabase): Promise<void> {
   );
 
   await seedDemoInterview(db);
+  await seedDemoEvents(db);
 }

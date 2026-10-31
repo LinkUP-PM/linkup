@@ -669,6 +669,29 @@ async function main() {
   }
   console.log("ok  GET /interviews");
 
+  const calendar = await fetch(`${baseUrl}/agenda`, {
+    headers: bearer(recruiter.token),
+  });
+  const calendarBody = await expectJson(calendar, "list-agenda");
+  if (
+    calendar.status !== 200 ||
+    !Array.isArray(calendarBody.items) ||
+    calendarBody.items.length < 3
+  ) {
+    throw new Error(`GET /agenda: ${calendar.status} ${JSON.stringify(calendarBody)}`);
+  }
+  const hasSubmitted = calendarBody.items.some(
+    (item: { type?: string }) => item.type === "SUBMITTED",
+  );
+  const hasInterview = calendarBody.items.some(
+    (item: { type?: string }) =>
+      item.type === "INTERVIEW_PROPOSED" || item.type === "INTERVIEW_ACCEPTED",
+  );
+  if (!hasSubmitted || !hasInterview) {
+    throw new Error(`GET /agenda sem histórico esperado: ${JSON.stringify(calendarBody.items)}`);
+  }
+  console.log("ok  GET /agenda");
+
   const logout = await fetch(`${baseUrl}/auth/session`, {
     method: "DELETE",
     headers: bearer(candidate2.token),

@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { Job } from "@linkup/shared";
+import { appendApplicationEvent } from "../lib/application-events.js";
 import { prisma } from "../lib/prisma.js";
 import { httpError, requireRole, requireUser } from "../lib/http.js";
 import { readPdfUpload } from "../lib/pdf-upload.js";
@@ -291,6 +292,7 @@ export async function jobsRoutes(app: FastifyInstance) {
         },
         include: { job: { select: { title: true, employerId: true } } },
       });
+      await appendApplicationEvent(application.id, "SUBMITTED", application.createdAt);
 
       return reply.code(201).send(toApplicationSummary(application));
     } catch (err) {

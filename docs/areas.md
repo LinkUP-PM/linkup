@@ -67,6 +67,7 @@ A **home** apresenta o produto (o currículo vira um plano; o processo em três 
 | Enviar currículo | A tela atual de PDF |
 | Análise | A tela atual de fortes, atenção e sugestões |
 | Candidatura | Linha do tempo do status + mensagem de decisão; se aceito, aceitar ou recusar a data da entrevista |
+| Agenda | Aba com calendário: envio, decisões e entrevistas das próprias candidaturas |
 | Ajuste | O texto do contratante e o reenvio do PDF (na mesma tela de candidatura) |
 
 O histórico de análises que já existe continua aqui, como lista dos PDFs que o candidato mesmo enviou.
@@ -76,9 +77,9 @@ O histórico de análises que já existe continua aqui, como lista dos PDFs que 
 | Tela | O que faz |
 | --- | --- |
 | Login | E-mail e senha; criar conta ou entrar como recrutador |
-| Início | Atalho **A triar** (total na fila) + atalho **Agenda** + vagas com contagens do funil (fila, encaminhadas, em ajuste, encerradas) |
+| Início (aba Triagem) | Atalho **A triar** + vagas com contagens do funil (fila, encaminhadas, em ajuste, encerradas) |
 | Inbox (A triar) | Fila global de candidaturas `SUBMITTED` de todas as vagas; reenvios no topo; prévia rápida e tags |
-| Agenda | Lista de entrevistas (vaga, candidato, dia, status); só leitura |
+| Agenda | Aba com calendário do funil (envios, encaminhamentos, decisões, entrevistas); só leitura |
 | Fila da vaga | Busca por e-mail, filtros (fila / reenvios / encaminhadas / ajuste / encerradas), e-mail, competências, tags, selo de reenvio, prévia rápida (fortes/atenção) |
 | Dossiê | Texto da vaga, tags internas, histórico de notas, análise, salvar nota sem mudar status; Encaminhar ou Descartar com nota opcional; histórico de entrevistas |
 | Tags internas | Conjunto fixo (`forte`, `duvida`, `perfil-senior`, `comunicar-depois`); só o recrutador vê |
@@ -91,12 +92,12 @@ O recrutador não cria vaga.
 | Tela | O que faz |
 | --- | --- |
 | Login | E-mail e senha; criar conta ou entrar como contratante |
-| Início | Vagas dele, decisões pendentes e atalho para a agenda |
+| Início | Vagas dele e decisões pendentes |
+| Agenda | Aba com calendário: envios, decisões e entrevistas das suas vagas |
 | Nova vaga | Título, descrição e o que procura |
 | Indicados | Só os indicados pelo recrutador (e desfechos já decididos) |
 | Dossiê | Leitura curta da análise; após aceitar, marcar ou corrigir o dia da entrevista |
 | Decisão | Aceitar, Recusar ou Pedir ajuste. Recusa e ajuste pedem um texto curto |
-| Agenda | Convites das suas vagas; candidato aceita ou recusa a data |
 
 ## Fora deste mapa
 

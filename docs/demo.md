@@ -18,9 +18,9 @@ Upload → Extração → Análise → Feedback → Histórico
 
 | Papel | E-mail | O que já está pronto |
 | --- | --- | --- |
-| Contratante | `contratante@demo.linkup` | Duas vagas (mobile e dados); decisão pendente do Bruno; agenda com convite na vaga de dados |
-| Recrutador | `recrutador@demo.linkup` | Fila com Ana; funil com encaminhada, ajuste, descarte; agenda de entrevistas |
-| Candidato | `ana.costa@demo.linkup` | Candidatura enviada (mobile) + pedido de ajuste (dados) |
+| Contratante | `contratante@demo.linkup` | Duas vagas (mobile e dados); decisão pendente do Bruno; aba Agenda com histórico e entrevista na vaga de dados |
+| Recrutador | `recrutador@demo.linkup` | Fila com Ana; funil com encaminhada, ajuste, descarte; aba Agenda com calendário do processo |
+| Candidato | `ana.costa@demo.linkup` | Candidatura enviada (mobile) + pedido de ajuste (dados); aba Agenda com os eventos |
 
 Outras contas no seed (mesma senha): `bruno.lima@demo.linkup` (encaminhado na mobile; aceito na de dados com entrevista proposta para aceitar/recusar), `carla.nunes@demo.linkup` (descartado/recusado). A tela de entrar de cada papel mostra o e-mail principal e a senha.
 
@@ -29,10 +29,10 @@ Outras contas no seed (mesma senha): `bruno.lima@demo.linkup` (encaminhado na mo
 | Min | O que mostrar | Como |
 | --- | --- | --- |
 | 0:00 | Problema | “Currículo genérico não diz o que melhorar. O LinkUP devolve três blocos acionáveis.” |
-| 0:30 | Candidato | Entrar como Ana → início com status e histórico |
+| 0:30 | Candidato | Entrar como Ana → início com status; aba Agenda com o calendário |
 | 1:00 | Feedback | Abrir a análise (três blocos) — sem nota |
-| 1:45 | Recrutador | Entrar → fila / dossiê da Ana → encaminhar ou só ler a nota |
-| 2:30 | Contratante | Entrar → indicados (Bruno) → decidir; ou Agenda → ver convite da vaga de dados |
+| 1:45 | Recrutador | Entrar → fila / dossiê da Ana → encaminhar; aba Agenda |
+| 2:30 | Contratante | Entrar → indicados (Bruno) → decidir; aba Agenda → entrevista da vaga de dados |
 | 3:15 | Candidato Bruno | Entrar → candidatura aceita → Aceitar ou Recusar a data |
 | 3:45 | Upload novo | Enviar `docs/fixtures/sample-resume.pdf` ou caminho de erro (`short-resume.pdf` / `not-a-pdf.txt`) |
 | 4:30 | Limitações | Ver abaixo |

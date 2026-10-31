@@ -441,13 +441,43 @@ Erros de PDF/IA: mesmos de `POST /analyses`.
 | 404 | `NOT_FOUND` | Candidatura inexistente ou de outro candidato |
 | 409 | `INVALID_TRANSITION` | Status diferente de `ADJUSTMENT_REQUESTED` |
 
-## Agenda de entrevista
+## Agenda de entrevista e calendário
 
 Status do convite (`InterviewStatus`): `PROPOSED` | `ACCEPTED` | `DECLINED`.
 
 Fluxo: candidatura `ACCEPTED` → contratante marca dia (`PROPOSED`) → candidato aceita (`ACCEPTED`, trava) ou recusa (`DECLINED`, contratante marca outro dia). Enquanto `PROPOSED`, o contratante pode corrigir a data no mesmo convite. No máximo um convite `PROPOSED` ou `ACCEPTED` por candidatura.
 
+Cada transição do processo grava um `ApplicationEvent` (`SUBMITTED`, `RESUBMITTED`, `FORWARDED`, `DISCARDED`, `ADJUSTMENT_REQUESTED`, `ACCEPTED`, `REJECTED`, `INTERVIEW_PROPOSED`, `INTERVIEW_ACCEPTED`, `INTERVIEW_DECLINED`). Eventos de entrevista usam `at` = `scheduledAt` da entrevista; os demais usam o instante da transição.
+
 `ApplicationSummary` / `ApplicationDetail` incluem `interviewStatus` e `interviewScheduledAt` do convite atual (quando houver). `ApplicationDetail` inclui `interviews` (mais recente primeiro). O e-mail do candidato aparece para recrutador e contratante na agenda e no bloco de entrevista.
+
+### `GET /agenda`
+
+Calendário do processo filtrado por papel:
+
+- `CANDIDATE`: eventos das próprias candidaturas (sem e-mail de terceiros)
+- `EMPLOYER`: eventos das suas vagas (com `candidateEmail`)
+- `RECRUITER`: todos os eventos (com `candidateEmail`)
+
+Sucesso `200`:
+
+```json
+{
+  "items": [
+    {
+      "id": "clx...",
+      "applicationId": "clx...",
+      "jobId": "clx...",
+      "jobTitle": "Desenvolvedor mobile",
+      "type": "SUBMITTED",
+      "date": "2026-10-22T14:30:00.000Z",
+      "createdAt": "2026-10-22T14:30:00.000Z",
+      "candidateEmail": "ana.costa@demo.linkup",
+      "interviewStatus": null
+    }
+  ]
+}
+```
 
 ### `GET /interviews`
 

@@ -67,6 +67,32 @@ export type InterviewStatus = "PROPOSED" | "ACCEPTED" | "DECLINED";
 
 export type InterviewRespondAction = "ACCEPT" | "DECLINE";
 
+export type ApplicationEventType =
+  | "SUBMITTED"
+  | "RESUBMITTED"
+  | "FORWARDED"
+  | "DISCARDED"
+  | "ADJUSTMENT_REQUESTED"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "INTERVIEW_PROPOSED"
+  | "INTERVIEW_ACCEPTED"
+  | "INTERVIEW_DECLINED";
+
+export type AgendaItem = {
+  id: string;
+  applicationId: string;
+  jobId: string;
+  jobTitle: string;
+  type: ApplicationEventType;
+  /** ISO — dia/hora em que o item aparece no calendário. */
+  date: string;
+  createdAt: string;
+  /** Recrutador e contratante. */
+  candidateEmail?: string;
+  interviewStatus?: InterviewStatus | null;
+};
+
 export type Interview = {
   id: string;
   applicationId: string;
@@ -254,6 +280,19 @@ export const INTERVIEW_STATUS_LABELS: Record<InterviewStatus, string> = {
   PROPOSED: "Aguardando resposta",
   ACCEPTED: "Data confirmada",
   DECLINED: "Data recusada",
+};
+
+export const APPLICATION_EVENT_LABELS: Record<ApplicationEventType, string> = {
+  SUBMITTED: "Currículo enviado",
+  RESUBMITTED: "Currículo reenviado",
+  FORWARDED: "Encaminhada ao contratante",
+  DISCARDED: "Descartada na triagem",
+  ADJUSTMENT_REQUESTED: "Pedido de ajuste",
+  ACCEPTED: "Candidatura aceita",
+  REJECTED: "Candidatura recusada",
+  INTERVIEW_PROPOSED: "Entrevista proposta",
+  INTERVIEW_ACCEPTED: "Entrevista confirmada",
+  INTERVIEW_DECLINED: "Entrevista recusada",
 };
 
 function isPoint(value: unknown): boolean {
