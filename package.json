@@ -10,12 +10,16 @@
   "scripts": {
     "dev:api": "npm run dev -w @linkup/api",
     "dev:mobile": "npm run start -w @linkup/mobile",
+    "dev:web": "npm run web -w @linkup/mobile",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:migrate": "npm run prisma:migrate -w @linkup/api",
     "db:generate": "npm run prisma:generate -w @linkup/api",
-    "typecheck": "npm run typecheck -w @linkup/shared && npm run typecheck -w @linkup/api",
-    "lint": "npm run typecheck"
+    "typecheck": "npm run typecheck -w @linkup/shared && npm run typecheck -w @linkup/api && npm run typecheck -w @linkup/mobile",
+    "lint": "npm run typecheck",
+    "test:fixtures": "npm run test:fixtures -w @linkup/api",
+    "smoke:api": "npm run smoke:api -w @linkup/api",
+    "apk:release": "npm run apk:release -w @linkup/mobile"
   },
   "devDependencies": {
     "typescript": "^5.9.2"
@@ -23,5 +27,9 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "npm@11.16.0"
+  "packageManager": "npm@11.16.0",
+  "dependencies": {
+    "react-dom": "18.3.1",
+    "react-native-web": "~0.19.13"
+  }
 }

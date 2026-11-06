@@ -1,7 +1,19 @@
 import { extractText, getDocumentProxy } from "unpdf";
-import { httpError } from "../routes/health.js";
+import { httpError } from "../lib/http.js";
 
 const MIN_TEXT_LENGTH = 80;
+
+/** Colapsa espaços na linha, mas preserva quebras e parágrafos (seções). */
+function normalizeExtractedText(raw: string): string {
+  return raw
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[^\S\n]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
 
 export async function extractPdfText(buffer: Buffer): Promise<string> {
   if (!buffer.length || buffer.subarray(0, 4).toString("utf8") !== "%PDF") {
@@ -12,8 +24,10 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
     const pdf = await getDocumentProxy(new Uint8Array(buffer));
     const { text } = await extractText(pdf, { mergePages: true });
     const raw = Array.isArray(text) ? text.join("\n") : (text ?? "");
-    return raw.replace(/\s+/g, " ").trim();
-  } catch {
+    return normalizeExtractedText(raw);
+  } catch (err) {
+    const code = (err as { code?: string }).code;
+    if (code === "INVALID_FILE") throw err;
     throw httpError(
       422,
       "TEXT_NOT_EXTRACTABLE",

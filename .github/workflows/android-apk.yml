@@ -1,0 +1,96 @@
+name: Android APK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install dependencies
+        working-directory: .
+        run: npm install
+
+      - name: Prebuild Android project
+        run: npx expo prebuild --platform android --non-interactive
+
+      - name: Assemble release APK
+        working-directory: apps/mobile/android
+        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
+
+      - name: Locate APK
+        id: apk
+        run: |
+          APK=$(find android/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "APK não encontrado"
+            exit 1
+          fi
+          cp "$APK" "$GITHUB_WORKSPACE/linkup.apk"
+          echo "path=$GITHUB_WORKSPACE/linkup.apk" >> "$GITHUB_OUTPUT"
+          ls -lh "$GITHUB_WORKSPACE/linkup.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkup-android
+          path: linkup.apk
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=v0.1.0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: LinkUP ${{ steps.tag.outputs.name }}
+          files: linkup.apk
+          body: |
+            ## LinkUP para Android
+
+            Instalável de demonstração. Contas, vagas, candidaturas e análises ficam em **SQLite no celular**. Não precisa de API, Docker nem internet depois de instalar.
+
+            1. Baixe o arquivo `linkup.apk`
+            2. No celular, permita instalar apps de origem desconhecida
+            3. Abra o APK e instale
+            4. Entre com uma conta demo e use **Sair** para trocar de papel
+
+            ### Contas demo (senha `demo1234`)
+
+            | Papel | E-mail |
+            | --- | --- |
+            | Contratante | `contratante@demo.linkup` |
+            | Recrutador | `recrutador@demo.linkup` |
+            | Candidato | `ana.costa@demo.linkup` |
+
+            Análise de currículo usa o modo local (sem servidor e sem chave de IA).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

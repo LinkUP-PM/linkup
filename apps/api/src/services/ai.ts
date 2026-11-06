@@ -7,7 +7,7 @@ import {
   type AnalysisResult,
 } from "@linkup/shared";
 import { config } from "../config.js";
-import { httpError } from "../routes/health.js";
+import { httpError } from "../lib/http.js";
 
 const promptDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
