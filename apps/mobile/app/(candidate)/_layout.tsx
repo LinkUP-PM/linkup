@@ -81,6 +81,14 @@ export default function CandidateTabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="cadastro"
+        options={{
+          href: null,
+          title: "Cadastro",
+          headerTitle: () => <BrandHeaderTitle title="Cadastro" />,
+        }}
+      />
     </Tabs>
   );
 }

@@ -1,5 +1,24 @@
 import type { FastifyInstance } from "fastify";
-import type { Job } from "@linkup/shared";
+import type {
+  Job,
+  JobContractType,
+  JobInput,
+  JobSeniority,
+  JobStage,
+  JobStatus,
+  WorkModel,
+} from "@linkup/shared";
+import {
+  canPublishJob,
+  DEFAULT_JOB_STAGES,
+  isJobContractType,
+  isJobSeniority,
+  isJobStatus,
+  isWorkModel,
+  lookingForFromRequirements,
+  normalizeJobStages,
+  normalizeStringList,
+} from "@linkup/shared";
 import { appendApplicationEvent } from "../lib/application-events.js";
 import { prisma } from "../lib/prisma.js";
 import { httpError, requireRole, requireUser } from "../lib/http.js";
@@ -15,17 +34,41 @@ type JobCounts = {
   closedCount?: number;
 };
 
-function toJob(
-  row: {
-    id: string;
-    title: string;
-    description: string;
-    lookingFor: string;
-    employerId: string;
-    createdAt: Date;
-  },
-  counts?: JobCounts,
-): Job {
+type JobRow = {
+  id: string;
+  title: string;
+  description: string;
+  lookingFor: string;
+  status: JobStatus;
+  seniority: JobSeniority | null;
+  contractType: JobContractType | null;
+  openings: number;
+  pcdExclusive: boolean;
+  workModel: WorkModel | null;
+  city: string | null;
+  state: string | null;
+  responsibilities: string;
+  requirementsJson: unknown;
+  niceToHaveJson: unknown;
+  benefitsJson: unknown;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  additionalInfo: string;
+  stagesJson: unknown;
+  publishedAt: Date | null;
+  employerId: string;
+  createdAt: Date;
+};
+
+function asStringList(value: unknown): string[] {
+  return normalizeStringList(value);
+}
+
+function asStages(value: unknown): JobStage[] {
+  return normalizeJobStages(value);
+}
+
+function toJob(row: JobRow, counts?: JobCounts): Job {
   const job: Job = {
     id: row.id,
     title: row.title,
@@ -33,6 +76,23 @@ function toJob(
     lookingFor: row.lookingFor,
     employerId: row.employerId,
     createdAt: row.createdAt.toISOString(),
+    status: row.status,
+    seniority: row.seniority,
+    contractType: row.contractType,
+    openings: row.openings,
+    pcdExclusive: row.pcdExclusive,
+    workModel: row.workModel,
+    city: row.city,
+    state: row.state,
+    responsibilities: row.responsibilities,
+    requirements: asStringList(row.requirementsJson),
+    niceToHave: asStringList(row.niceToHaveJson),
+    benefits: asStringList(row.benefitsJson),
+    salaryMin: row.salaryMin,
+    salaryMax: row.salaryMax,
+    additionalInfo: row.additionalInfo,
+    stages: asStages(row.stagesJson),
+    publishedAt: row.publishedAt ? row.publishedAt.toISOString() : null,
   };
   if (counts?.queueCount !== undefined) {
     job.queueCount = counts.queueCount;
@@ -52,11 +112,142 @@ function toJob(
   return job;
 }
 
-function trimRequired(value: unknown, field: string): string {
-  if (typeof value !== "string" || value.trim().length < 3) {
-    throw httpError(400, "INVALID_BODY", `Informe ${field} com pelo menos 3 caracteres.`);
-  }
+function optionalTrimmed(value: unknown): string {
+  if (typeof value !== "string") return "";
   return value.trim();
+}
+
+function parseOptionalEnum<T extends string>(
+  value: unknown,
+  guard: (v: unknown) => v is T,
+): T | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (!guard(value)) {
+    throw httpError(400, "INVALID_BODY", "Valor inválido no formulário da vaga.");
+  }
+  return value;
+}
+
+function parseOpenings(value: unknown): number {
+  if (value === undefined || value === null || value === "") return 1;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 1 || n > 99) {
+    throw httpError(400, "INVALID_BODY", "Quantidade de posições deve ser entre 1 e 99.");
+  }
+  return n;
+}
+
+function parseOptionalSalary(value: unknown, field: string): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(n) || n < 0 || n > 10_000_000) {
+    throw httpError(400, "INVALID_BODY", `${field} inválido.`);
+  }
+  return n;
+}
+
+type NormalizedJobFields = {
+  title: string;
+  description: string;
+  lookingFor: string;
+  status: JobStatus;
+  seniority: JobSeniority | null;
+  contractType: JobContractType | null;
+  openings: number;
+  pcdExclusive: boolean;
+  workModel: WorkModel | null;
+  city: string | null;
+  state: string | null;
+  responsibilities: string;
+  requirements: string[];
+  niceToHave: string[];
+  benefits: string[];
+  salaryMin: number | null;
+  salaryMax: number | null;
+  additionalInfo: string;
+  stages: JobStage[];
+};
+
+function normalizeJobBody(body: JobInput, opts: { publish: boolean }): NormalizedJobFields {
+  const title = optionalTrimmed(body.title);
+  if (title.length < 3) {
+    throw httpError(400, "INVALID_BODY", "Informe um título com pelo menos 3 caracteres.");
+  }
+
+  const status: JobStatus = opts.publish
+    ? "PUBLISHED"
+    : isJobStatus(body.status)
+      ? body.status
+      : "DRAFT";
+
+  const description = optionalTrimmed(body.description);
+  const responsibilities = optionalTrimmed(body.responsibilities);
+  const additionalInfo = optionalTrimmed(body.additionalInfo);
+  const requirements = normalizeStringList(body.requirements);
+  const niceToHave = normalizeStringList(body.niceToHave);
+  const benefits = normalizeStringList(body.benefits);
+  const stages =
+    body.stages === undefined ? [...DEFAULT_JOB_STAGES] : normalizeJobStages(body.stages);
+
+  const seniority = parseOptionalEnum(body.seniority, isJobSeniority);
+  const contractType = parseOptionalEnum(body.contractType, isJobContractType);
+  const workModel = parseOptionalEnum(body.workModel, isWorkModel);
+  const openings = parseOpenings(body.openings);
+  const pcdExclusive = Boolean(body.pcdExclusive);
+  const cityRaw = optionalTrimmed(body.city);
+  const stateRaw = optionalTrimmed(body.state).toUpperCase();
+  const city = cityRaw.length > 0 ? cityRaw : null;
+  const state = stateRaw.length > 0 ? stateRaw : null;
+
+  let salaryMin = parseOptionalSalary(body.salaryMin, "Salário mínimo");
+  let salaryMax = parseOptionalSalary(body.salaryMax, "Salário máximo");
+  if ((salaryMin !== null && salaryMax === null) || (salaryMin === null && salaryMax !== null)) {
+    throw httpError(400, "INVALID_BODY", "Informe a faixa salarial completa ou deixe em branco.");
+  }
+  if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) {
+    throw httpError(400, "INVALID_BODY", "O salário mínimo não pode ser maior que o máximo.");
+  }
+
+  const lookingFor =
+    requirements.length > 0
+      ? lookingForFromRequirements(requirements)
+      : optionalTrimmed(body.lookingFor);
+
+  if (status === "PUBLISHED" || opts.publish) {
+    const err = canPublishJob({
+      title,
+      description,
+      workModel,
+      city,
+      state,
+      seniority,
+      contractType,
+      requirements,
+    });
+    if (err) throw httpError(400, "INVALID_BODY", err);
+  }
+
+  return {
+    title,
+    description,
+    lookingFor,
+    status: opts.publish ? "PUBLISHED" : status,
+    seniority,
+    contractType,
+    openings,
+    pcdExclusive,
+    workModel,
+    city,
+    state,
+    responsibilities,
+    requirements,
+    niceToHave,
+    benefits,
+    salaryMin,
+    salaryMax,
+    additionalInfo,
+    stages,
+  };
 }
 
 type StatusCounts = {
@@ -96,29 +287,105 @@ async function countsForJobs(jobIds: string[]): Promise<Map<string, StatusCounts
   return map;
 }
 
+function withCounts(row: JobRow, role: string | null | undefined, c: StatusCounts): Job {
+  if (role === "RECRUITER") {
+    return toJob(row, {
+      queueCount: c.submitted,
+      forwardedCount: c.forwarded,
+      adjustmentCount: c.adjustment,
+      closedCount: c.closed,
+    });
+  }
+  if (role === "EMPLOYER") {
+    return toJob(row, { pendingDecisionCount: c.forwarded });
+  }
+  return toJob(row);
+}
+
 export async function jobsRoutes(app: FastifyInstance) {
   app.post("/jobs", async (request, reply) => {
     const user = await requireRole(request, "EMPLOYER");
-    const body = (request.body ?? {}) as {
-      title?: unknown;
-      description?: unknown;
-      lookingFor?: unknown;
-    };
-
-    const title = trimRequired(body.title, "title");
-    const description = trimRequired(body.description, "description");
-    const lookingFor = trimRequired(body.lookingFor, "lookingFor");
+    const body = (request.body ?? {}) as JobInput;
+    const publish = body.status === "PUBLISHED";
+    const fields = normalizeJobBody(body, { publish });
+    const now = new Date();
 
     const job = await prisma.job.create({
       data: {
-        title,
-        description,
-        lookingFor,
+        title: fields.title,
+        description: fields.description,
+        lookingFor: fields.lookingFor,
+        status: fields.status,
+        seniority: fields.seniority,
+        contractType: fields.contractType,
+        openings: fields.openings,
+        pcdExclusive: fields.pcdExclusive,
+        workModel: fields.workModel,
+        city: fields.city,
+        state: fields.state,
+        responsibilities: fields.responsibilities,
+        requirementsJson: fields.requirements,
+        niceToHaveJson: fields.niceToHave,
+        benefitsJson: fields.benefits,
+        salaryMin: fields.salaryMin,
+        salaryMax: fields.salaryMax,
+        additionalInfo: fields.additionalInfo,
+        stagesJson: fields.stages,
+        publishedAt: fields.status === "PUBLISHED" ? now : null,
         employerId: user.id,
       },
     });
 
-    return reply.code(201).send(toJob(job));
+    return reply.code(201).send(toJob(job as JobRow));
+  });
+
+  app.patch("/jobs/:id", async (request) => {
+    const user = await requireRole(request, "EMPLOYER");
+    const { id } = request.params as { id: string };
+    const body = (request.body ?? {}) as JobInput;
+    const publish = body.status === "PUBLISHED";
+    const fields = normalizeJobBody(body, { publish });
+
+    const existing = await prisma.job.findFirst({
+      where: { id, employerId: user.id },
+    });
+    if (!existing) {
+      throw httpError(404, "NOT_FOUND", "Vaga não encontrada.");
+    }
+
+    const now = new Date();
+    const publishedAt =
+      fields.status === "PUBLISHED"
+        ? (existing.publishedAt ?? now)
+        : existing.publishedAt;
+
+    const job = await prisma.job.update({
+      where: { id },
+      data: {
+        title: fields.title,
+        description: fields.description,
+        lookingFor: fields.lookingFor,
+        status: fields.status,
+        seniority: fields.seniority,
+        contractType: fields.contractType,
+        openings: fields.openings,
+        pcdExclusive: fields.pcdExclusive,
+        workModel: fields.workModel,
+        city: fields.city,
+        state: fields.state,
+        responsibilities: fields.responsibilities,
+        requirementsJson: fields.requirements,
+        niceToHaveJson: fields.niceToHave,
+        benefitsJson: fields.benefits,
+        salaryMin: fields.salaryMin,
+        salaryMax: fields.salaryMax,
+        additionalInfo: fields.additionalInfo,
+        stagesJson: fields.stages,
+        publishedAt,
+      },
+    });
+
+    return toJob(job as JobRow);
   });
 
   app.get("/jobs", async (request) => {
@@ -128,7 +395,10 @@ export async function jobsRoutes(app: FastifyInstance) {
     }
 
     const rows = await prisma.job.findMany({
-      where: user.role === "EMPLOYER" ? { employerId: user.id } : undefined,
+      where:
+        user.role === "EMPLOYER"
+          ? { employerId: user.id }
+          : { status: "PUBLISHED" },
       orderBy: { createdAt: "desc" },
     });
 
@@ -142,18 +412,7 @@ export async function jobsRoutes(app: FastifyInstance) {
           adjustment: 0,
           closed: 0,
         };
-        if (user.role === "RECRUITER") {
-          return toJob(row, {
-            queueCount: c.submitted,
-            forwardedCount: c.forwarded,
-            adjustmentCount: c.adjustment,
-            closedCount: c.closed,
-          });
-        }
-        if (user.role === "EMPLOYER") {
-          return toJob(row, { pendingDecisionCount: c.forwarded });
-        }
-        return toJob(row);
+        return withCounts(row as JobRow, user.role, c);
       }),
     };
   });
@@ -169,7 +428,7 @@ export async function jobsRoutes(app: FastifyInstance) {
       where:
         user.role === "EMPLOYER"
           ? { id, employerId: user.id }
-          : { id },
+          : { id, status: "PUBLISHED" },
     });
 
     if (!row) {
@@ -183,18 +442,7 @@ export async function jobsRoutes(app: FastifyInstance) {
       adjustment: 0,
       closed: 0,
     };
-    if (user.role === "RECRUITER") {
-      return toJob(row, {
-        queueCount: c.submitted,
-        forwardedCount: c.forwarded,
-        adjustmentCount: c.adjustment,
-        closedCount: c.closed,
-      });
-    }
-    if (user.role === "EMPLOYER") {
-      return toJob(row, { pendingDecisionCount: c.forwarded });
-    }
-    return toJob(row);
+    return withCounts(row as JobRow, user.role, c);
   });
 
   app.get("/jobs/:id/applications", async (request) => {
@@ -231,7 +479,9 @@ export async function jobsRoutes(app: FastifyInstance) {
     }
 
     // RECRUITER
-    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    const job = await prisma.job.findFirst({
+      where: { id: jobId, status: "PUBLISHED" },
+    });
     if (!job) {
       throw httpError(404, "NOT_FOUND", "Vaga não encontrada.");
     }
@@ -260,7 +510,9 @@ export async function jobsRoutes(app: FastifyInstance) {
     const user = await requireRole(request, "CANDIDATE");
     const { id: jobId } = request.params as { id: string };
 
-    const job = await prisma.job.findUnique({ where: { id: jobId } });
+    const job = await prisma.job.findFirst({
+      where: { id: jobId, status: "PUBLISHED" },
+    });
     if (!job) {
       throw httpError(404, "NOT_FOUND", "Vaga não encontrada.");
     }

@@ -12,7 +12,7 @@ type EventRow = {
   application: {
     jobId: string;
     job: { title: string; employerId: string };
-    candidate: { email: string };
+    candidate: { email: string; candidateProfile: { fullName: string } | null };
     interviews: Array<{ status: InterviewStatus; createdAt: Date }>;
   };
 };
@@ -39,6 +39,8 @@ function toAgendaItem(row: EventRow, includeEmail: boolean): AgendaItem {
   };
   if (includeEmail) {
     item.candidateEmail = row.application.candidate.email;
+    const name = row.application.candidate.candidateProfile?.fullName?.trim();
+    if (name) item.candidateName = name;
   }
   return item;
 }
@@ -47,7 +49,12 @@ const eventInclude = {
   application: {
     include: {
       job: { select: { title: true, employerId: true } },
-      candidate: { select: { email: true } },
+      candidate: {
+        select: {
+          email: true,
+          candidateProfile: { select: { fullName: true } },
+        },
+      },
       interviews: {
         where: { status: { in: ["PROPOSED" as const, "ACCEPTED" as const] } },
         orderBy: { createdAt: "desc" as const },

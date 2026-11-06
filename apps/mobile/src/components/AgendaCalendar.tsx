@@ -173,8 +173,8 @@ export function AgendaCalendar({ items, onOpenItem, showCandidateEmail }: Props)
               key={item.id}
               title={APPLICATION_EVENT_LABELS[item.type]}
               subtitle={
-                showCandidateEmail && item.candidateEmail
-                  ? `${item.jobTitle} · ${item.candidateEmail}`
+                showCandidateEmail
+                  ? `${item.jobTitle} · ${item.candidateName ?? item.candidateEmail ?? "Candidato"}`
                   : item.jobTitle
               }
               meta={formatInterviewWhen(item.date)}

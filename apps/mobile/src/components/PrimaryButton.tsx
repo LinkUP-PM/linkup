@@ -6,13 +6,14 @@ type Props = {
   label: string;
   onPress: () => void;
   disabled?: boolean;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "danger";
   style?: ViewStyle;
 };
 
 export function PrimaryButton({ label, onPress, disabled, variant = "primary", style }: Props) {
   const isPrimary = variant === "primary";
   const isSecondary = variant === "secondary";
+  const isDanger = variant === "danger";
 
   function handlePress() {
     if (Platform.OS !== "web") {
@@ -30,6 +31,7 @@ export function PrimaryButton({ label, onPress, disabled, variant = "primary", s
         isPrimary && styles.primary,
         isSecondary && styles.secondary,
         variant === "ghost" && styles.ghost,
+        isDanger && styles.danger,
         (pressed || disabled) && styles.pressed,
         disabled && styles.disabled,
         style,
@@ -41,6 +43,7 @@ export function PrimaryButton({ label, onPress, disabled, variant = "primary", s
           isPrimary && styles.labelPrimary,
           isSecondary && styles.labelSecondary,
           variant === "ghost" && styles.labelGhost,
+          isDanger && styles.labelDanger,
         ]}
       >
         {label}
@@ -69,6 +72,11 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingVertical: spacing.sm,
   },
+  danger: {
+    backgroundColor: colors.errorSoft,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.error,
+  },
   pressed: {
     opacity: 0.85,
   },
@@ -87,5 +95,8 @@ const styles = StyleSheet.create({
   },
   labelGhost: {
     color: colors.accent,
+  },
+  labelDanger: {
+    color: colors.error,
   },
 });

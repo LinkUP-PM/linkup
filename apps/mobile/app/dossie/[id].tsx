@@ -22,10 +22,13 @@ import type {
 import {
   APPLICATION_STATUS_LABELS,
   INTERVIEW_STATUS_LABELS,
+  JOB_CONTRACT_TYPE_LABELS,
   RECRUITER_TAG_LABELS,
   RECRUITER_TAGS,
+  WORK_MODEL_LABELS,
 } from "@linkup/shared";
 import { ApplicationStatusPill } from "../../src/components/ApplicationStatusPill";
+import { CandidateProfileSummaryCard } from "../../src/components/CandidateProfileSummaryCard";
 import { DossierAnalysis } from "../../src/components/DossierAnalysis";
 import { EmptyState } from "../../src/components/EmptyState";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
@@ -265,7 +268,12 @@ export default function DossierScreen() {
           ) : null}
         </View>
         <Text style={styles.title}>{item.jobTitle}</Text>
-        {role === "RECRUITER" && item.candidateEmail ? (
+        {(role === "RECRUITER" || role === "EMPLOYER") && item.candidateProfile ? (
+          <CandidateProfileSummaryCard
+            profile={item.candidateProfile}
+            email={item.candidateEmail}
+          />
+        ) : role === "RECRUITER" && item.candidateEmail ? (
           <Text style={styles.candidateEmail}>{item.candidateEmail}</Text>
         ) : null}
         <Text style={styles.meta}>
@@ -276,7 +284,21 @@ export default function DossierScreen() {
           <View style={styles.jobBrief}>
             <Text style={styles.messageLabel}>O que a vaga procura</Text>
             <Text style={styles.messageBody}>{job.lookingFor}</Text>
-            <Text style={styles.jobDescription}>{job.description}</Text>
+            {job.description ? (
+              <Text style={styles.jobDescription}>{job.description}</Text>
+            ) : null}
+            {(job.workModel || job.contractType || job.city) && (
+              <Text style={styles.jobDescription}>
+                {[
+                  job.workModel ? WORK_MODEL_LABELS[job.workModel] : null,
+                  job.contractType ? JOB_CONTRACT_TYPE_LABELS[job.contractType] : null,
+                  job.city && job.state ? `${job.city}/${job.state}` : null,
+                  job.pcdExclusive ? "PCD" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            )}
           </View>
         ) : null}
 

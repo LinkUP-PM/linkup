@@ -18,8 +18,8 @@ Upload → Extração → Análise → Feedback → Histórico
 
 | Papel | E-mail | O que já está pronto |
 | --- | --- | --- |
-| Contratante | `contratante@demo.linkup` | Duas vagas (mobile e dados); decisão pendente do Bruno; aba Agenda com histórico e entrevista na vaga de dados |
-| Recrutador | `recrutador@demo.linkup` | Fila com Ana; funil com encaminhada, ajuste, descarte; aba Agenda com calendário do processo |
+| Contratante | `contratante@demo.linkup` | Duas vagas (mobile e dados); decisão pendente do Bruno; aba Agenda; aba Perfil da empresa preenchida |
+| Recrutador | `recrutador@demo.linkup` | Fila com Ana; funil com encaminhada, ajuste, descarte; aba Agenda; aba Perfil profissional preenchida |
 | Candidato | `ana.costa@demo.linkup` | Candidatura enviada (mobile) + pedido de ajuste (dados); aba Agenda com os eventos |
 
 Outras contas no seed (mesma senha): `bruno.lima@demo.linkup` (encaminhado na mobile; aceito na de dados com entrevista proposta para aceitar/recusar), `carla.nunes@demo.linkup` (descartado/recusado). A tela de entrar de cada papel mostra o e-mail principal e a senha.

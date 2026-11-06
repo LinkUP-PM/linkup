@@ -61,7 +61,9 @@ A **home** apresenta o produto (o currículo vira um plano; o processo em três 
 | Tela | O que faz |
 | --- | --- |
 | Login | E-mail e senha; criar conta ou entrar como candidato |
-| Início | Candidaturas em andamento, com o status em uma linha |
+| Início | Candidaturas em andamento, com o status em uma linha; aviso se o cadastro estiver incompleto |
+| Cadastro | Formulário em passos: pessoal (com laudo PCD opcional), endereço, profissional, trajetória e diversidade |
+| Perfil | Atalho para o cadastro + biblioteca de PDFs (1 principal e até 3 versões) |
 | Vagas | Lista do que está aberto |
 | Vaga | Descrição e o botão de se candidatar. Uma candidatura por vaga |
 | Enviar currículo | A tela atual de PDF |
@@ -72,6 +74,8 @@ A **home** apresenta o produto (o currículo vira um plano; o processo em três 
 
 O histórico de análises que já existe continua aqui, como lista dos PDFs que o candidato mesmo enviou.
 
+Recrutador e contratante veem só um **resumo** do cadastro (nome, cidade/UF, objetivo, formação e experiência recentes). Telefone, deficiência, laudo PCD, diversidade e pretensão salarial ficam só na conta do candidato.
+
 ## Telas — Recrutador
 
 | Tela | O que faz |
@@ -80,12 +84,13 @@ O histórico de análises que já existe continua aqui, como lista dos PDFs que 
 | Início (aba Triagem) | Atalho **A triar** + vagas com contagens do funil (fila, encaminhadas, em ajuste, encerradas) |
 | Inbox (A triar) | Fila global de candidaturas `SUBMITTED` de todas as vagas; reenvios no topo; prévia rápida e tags |
 | Agenda | Aba com calendário do funil (envios, encaminhamentos, decisões, entrevistas); só leitura |
+| Perfil | Aba com identidade, força do perfil e seções (pessoal, atuação, especialidade); cadastro em passos fora da barra |
 | Fila da vaga | Busca por e-mail, filtros (fila / reenvios / encaminhadas / ajuste / encerradas), e-mail, competências, tags, selo de reenvio, prévia rápida (fortes/atenção) |
 | Dossiê | Texto da vaga, tags internas, histórico de notas, análise, salvar nota sem mudar status; Encaminhar ou Descartar com nota opcional; histórico de entrevistas |
 | Tags internas | Conjunto fixo (`forte`, `duvida`, `perfil-senior`, `comunicar-depois`); só o recrutador vê |
 | Nota interna | Append-only no histórico (`NOTE` / `FORWARD` / `DISCARD`); `recruiterNote` é a última; só o recrutador vê |
 
-O recrutador não cria vaga.
+O recrutador não cria vaga. O perfil profissional fica só na conta dele (não aparece no dossiê nem para o contratante).
 
 ## Telas — Contratante
 
@@ -95,9 +100,12 @@ O recrutador não cria vaga.
 | Início | Vagas dele e decisões pendentes |
 | Agenda | Aba com calendário: envios, decisões e entrevistas das suas vagas |
 | Nova vaga | Título, descrição e o que procura |
+| Perfil | Aba com identidade da empresa, força do perfil e seções (empresa, endereço, responsável, contratação, cultura); cadastro em passos fora da barra |
 | Indicados | Só os indicados pelo recrutador (e desfechos já decididos) |
 | Dossiê | Leitura curta da análise; após aceitar, marcar ou corrigir o dia da entrevista |
 | Decisão | Aceitar, Recusar ou Pedir ajuste. Recusa e ajuste pedem um texto curto |
+
+O perfil da empresa fica só na conta do contratante (não aparece na vaga nem para o candidato).
 
 ## Fora deste mapa
 

@@ -11,6 +11,7 @@ import type {
 } from "@linkup/shared";
 import { normalizeRecruiterTags } from "@linkup/shared";
 import { appendApplicationEvent } from "../lib/application-events.js";
+import { toCandidateProfileSummary } from "../lib/candidate-profile.js";
 import { prisma } from "../lib/prisma.js";
 import { httpError, requireRole, requireUser } from "../lib/http.js";
 import { readPdfUpload } from "../lib/pdf-upload.js";
@@ -38,9 +39,28 @@ type InterviewEntryRow = {
   respondedAt: Date | null;
 };
 
+type ProfileSnippet = {
+  fullName: string;
+  city: string;
+  state: string;
+  objective: string | null;
+  educations: Array<{
+    level: string;
+    course: string;
+    institution: string;
+    sortOrder: number;
+  }>;
+  experiences: Array<{
+    company: string;
+    role: string;
+    sortOrder: number;
+  }>;
+};
+
 type ApplicationRow = {
   id: string;
   jobId: string;
+  candidateId?: string;
   status: ApplicationSummary["status"];
   analysisId: string;
   recruiterNote: string | null;
@@ -50,7 +70,10 @@ type ApplicationRow = {
   createdAt: Date;
   updatedAt: Date;
   job: { title: string; employerId: string };
-  candidate?: { email: string };
+  candidate?: {
+    email: string;
+    candidateProfile?: ProfileSnippet | null;
+  };
   analysis?: {
     id?: string;
     fileName?: string;
@@ -62,6 +85,28 @@ type ApplicationRow = {
   };
   noteEntries?: NoteEntryRow[];
   interviews?: InterviewEntryRow[];
+};
+
+const candidateProfileSelect = {
+  fullName: true,
+  city: true,
+  state: true,
+  objective: true,
+  educations: {
+    orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }],
+    take: 1,
+    select: { level: true, course: true, institution: true, sortOrder: true },
+  },
+  experiences: {
+    orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }],
+    take: 1,
+    select: { company: true, role: true, sortOrder: true },
+  },
+};
+
+const candidateWithProfileSelect = {
+  email: true,
+  candidateProfile: { select: candidateProfileSelect },
 };
 
 function previewSkillsFromResult(resultJson: unknown): string[] {
@@ -111,6 +156,10 @@ function toNoteEntry(row: NoteEntryRow): RecruiterNoteEntry {
   };
 }
 
+function profileSummaryFromRow(row: ApplicationRow) {
+  return toCandidateProfileSummary(row.candidate?.candidateProfile ?? null);
+}
+
 function toInterviewEntry(
   row: InterviewEntryRow,
   app: ApplicationRow,
@@ -129,6 +178,10 @@ function toInterviewEntry(
   if (includeEmail && app.candidate?.email) {
     interview.candidateEmail = app.candidate.email;
   }
+  if (includeEmail) {
+    const name = profileSummaryFromRow(app)?.fullName;
+    if (name) interview.candidateName = name;
+  }
   return interview;
 }
 
@@ -143,6 +196,7 @@ export function toApplicationSummary(
     includeDecisionMessage?: boolean;
     recruiterPreview?: boolean;
     includeCandidateEmail?: boolean;
+    includeCandidateProfile?: boolean;
   },
 ): ApplicationSummary {
   const current = currentInterview(row.interviews);
@@ -171,6 +225,10 @@ export function toApplicationSummary(
   if (opts?.includeCandidateEmail && row.candidate?.email) {
     summary.candidateEmail = row.candidate.email;
   }
+  if (opts?.includeCandidateProfile || opts?.recruiterPreview || opts?.includeCandidateEmail) {
+    const profile = profileSummaryFromRow(row);
+    if (profile) summary.candidateProfile = profile;
+  }
   return summary;
 }
 
@@ -181,6 +239,7 @@ export function toApplicationDetail(
   const detail: ApplicationDetail = toApplicationSummary(row, {
     recruiterPreview: viewer === "RECRUITER",
     includeCandidateEmail: viewer === "EMPLOYER",
+    includeCandidateProfile: viewer === "RECRUITER" || viewer === "EMPLOYER",
   });
 
   if (viewer === "RECRUITER") {
@@ -230,7 +289,7 @@ function employerCanSee(status: ApplicationSummary["status"]): boolean {
 
 const applicationInclude = {
   job: { select: { title: true, employerId: true } },
-  candidate: { select: { email: true } },
+  candidate: { select: candidateWithProfileSelect },
   analysis: true,
   noteEntries: { orderBy: { createdAt: "desc" as const } },
   interviews: { orderBy: { createdAt: "desc" as const } },
@@ -285,7 +344,7 @@ export async function applicationsRoutes(app: FastifyInstance) {
       orderBy: { createdAt: "desc" },
       include: {
         job: { select: { title: true, employerId: true } },
-        candidate: { select: { email: true } },
+        candidate: { select: candidateWithProfileSelect },
         analysis: { select: { resultJson: true } },
       },
     });

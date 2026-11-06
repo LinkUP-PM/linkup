@@ -111,6 +111,60 @@ Devolve o usuário da sessão.
 }
 ```
 
+## `GET /me/profile`
+
+Só `CANDIDATE`. Devolve o cadastro completo (dados pessoais, endereço, trajetória, diversidade e metadados do laudo PCD, sem o binário).
+
+`200` — objeto `CandidateProfile` (`isComplete` indica se pessoal + endereço obrigatórios estão preenchidos).
+
+`403 FORBIDDEN` para outros papéis.
+
+## `PUT /me/profile`
+
+Só `CANDIDATE`. Corpo JSON com os campos do cadastro (listas de formação, experiência, idiomas e certificados). Se `disabilityStatus` deixar de ser `YES`, o laudo anexado é apagado.
+
+`200` — `CandidateProfile` atualizado.
+
+## `POST /me/profile/laudo`
+
+Só `CANDIDATE`. `multipart/form-data` com campo `file` (PDF, até 5 MB). Exige cadastro com `disabilityStatus: YES`.
+
+`200` — `CandidateProfile` com `laudo: { fileName, fileSizeBytes }`.
+
+## `DELETE /me/profile/laudo`
+
+Só `CANDIDATE`. Remove o anexo do laudo.
+
+`200` — `CandidateProfile` com `laudo: null`.
+
+## `GET /me/employer-profile`
+
+Só `EMPLOYER`. Devolve o perfil da empresa (identidade, endereço, responsável, contratação e cultura).
+
+`200` — objeto `EmployerProfile` (`isComplete` indica se nome fantasia, setor, porte, sobre, cidade/UF, responsável e telefone estão preenchidos).
+
+`403 FORBIDDEN` para outros papéis.
+
+## `PUT /me/employer-profile`
+
+Só `EMPLOYER`. Corpo JSON com os campos do perfil da empresa. CNPJ, se enviado, precisa ter 14 dígitos e dígitos verificadores válidos.
+
+`200` — `EmployerProfile` atualizado.
+
+## `GET /me/recruiter-profile`
+
+Só `RECRUITER`. Devolve o perfil profissional (pessoal, atuação e especialidade).
+
+`200` — objeto `RecruiterProfile` (`isComplete` indica se nome, headline, telefone, cidade/UF, bio e ao menos uma área de foco estão preenchidos).
+
+`403 FORBIDDEN` para outros papéis.
+
+## `PUT /me/recruiter-profile`
+
+Só `RECRUITER`. Corpo JSON com os campos do perfil profissional (listas de áreas, senioridades, contratos, idiomas e certificações).
+
+`200` — `RecruiterProfile` atualizado.
+
 ## `POST /jobs`
 
 Só `EMPLOYER`.
@@ -180,7 +234,7 @@ Detalhe da vaga (mesmas regras de visibilidade de `GET /jobs`), com as mesmas co
 
 Lista candidaturas da vaga conforme o papel:
 
-- `RECRUITER`: todas as candidaturas da vaga (fila + acompanhamento). Inclui `candidateEmail`, `submissionCount`, `previewSkills` (até 3), `previewStrengths` (até 2 títulos), `previewAttention` (até 1 título), `recruiterTags`. O candidato e o contratante **não** recebem esses campos
+- `RECRUITER`: todas as candidaturas da vaga (fila + acompanhamento). Inclui `candidateEmail`, `candidateProfile` (resumo: nome, cidade/UF, objetivo, formação e experiência recentes), `submissionCount`, `previewSkills` (até 3), `previewStrengths` (até 2 títulos), `previewAttention` (até 1 título), `recruiterTags`. O candidato **não** recebe esses campos; o contratante recebe `candidateEmail` e `candidateProfile` nos indicados
 - `EMPLOYER`: só as da vaga dele que **não** estão em `SUBMITTED` nem `DISCARDED` (indicados e desfechos). Nunca a fila bruta nem descartados
 - `CANDIDATE`: `403 FORBIDDEN`
 
@@ -199,6 +253,21 @@ Lista candidaturas da vaga conforme o papel:
       "updatedAt": "2026-09-21T19:00:00.000Z",
       "decisionMessage": null,
       "candidateEmail": "candidato@exemplo.com",
+      "candidateProfile": {
+        "fullName": "Ana Costa",
+        "city": "São Paulo",
+        "state": "SP",
+        "objective": "Desenvolver produtos mobile…",
+        "latestEducation": {
+          "level": "UNDERGRADUATE",
+          "course": "Ciência da Computação",
+          "institution": "USP"
+        },
+        "latestExperience": {
+          "company": "Studio Mobile",
+          "role": "Desenvolvedora mobile"
+        }
+      },
       "submissionCount": 1,
       "previewSkills": ["TypeScript", "React Native", "SQLite"],
       "previewStrengths": ["Experiência com apps nativos"],

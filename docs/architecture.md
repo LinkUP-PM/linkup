@@ -52,6 +52,10 @@ Ver contrato completo em [contracts/api.md](contracts/api.md).
 | `POST` | `/auth/login` | Entrar |
 | `DELETE` | `/auth/session` | Sair |
 | `GET` | `/me` | Conta da sessão |
+| `GET` / `PUT` | `/me/profile` | Cadastro do candidato |
+| `POST` / `DELETE` | `/me/profile/laudo` | Anexo do laudo PCD |
+| `GET` / `PUT` | `/me/employer-profile` | Perfil da empresa (contratante) |
+| `GET` / `PUT` | `/me/recruiter-profile` | Perfil profissional (recrutador) |
 | `POST` | `/jobs` | Contratante abre vaga |
 | `GET` | `/jobs` | Lista conforme o papel (com contagens) |
 | `GET` | `/jobs/:id` | Detalhe da vaga |

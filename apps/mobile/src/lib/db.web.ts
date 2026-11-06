@@ -114,7 +114,21 @@ async function openWebDatabase(): Promise<WebDatabase> {
   } else {
     database = new SQL.Database();
   }
-  database.exec(SCHEMA);
+  // Um statement que falha (ex.: índice em coluna ainda inexistente) não pode
+  // abortar o restante do SCHEMA nem as migrações.
+  try {
+    database.exec(SCHEMA);
+  } catch {
+    for (const statement of SCHEMA.split(";")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)) {
+      try {
+        database.exec(`${statement};`);
+      } catch {
+        // applySchemaMigrations adiciona colunas/índices que faltam.
+      }
+    }
+  }
 
   const persist = async () => {
     await saveSnapshot(database.export());

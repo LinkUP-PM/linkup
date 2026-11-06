@@ -10,12 +10,27 @@ import {
 } from "react-native";
 import { useFocusEffect, useRouter, type Href } from "expo-router";
 import type { Job } from "@linkup/shared";
+import {
+  JOB_CONTRACT_TYPE_LABELS,
+  JOB_SENIORITY_LABELS,
+  WORK_MODEL_LABELS,
+} from "@linkup/shared";
 import { EmptyState } from "../../src/components/EmptyState";
 import { GroupedSection } from "../../src/components/GroupedSection";
 import { ListRow } from "../../src/components/ListRow";
 import { listJobs } from "../../src/lib/api";
 import { relativeTime } from "../../src/lib/relativeTime";
 import { colors, fonts, radius, spacing, type } from "../../src/theme/tokens";
+
+function jobSubtitle(job: Job): string {
+  const parts: string[] = [];
+  if (job.workModel) parts.push(WORK_MODEL_LABELS[job.workModel]);
+  if (job.seniority) parts.push(JOB_SENIORITY_LABELS[job.seniority]);
+  if (job.contractType) parts.push(JOB_CONTRACT_TYPE_LABELS[job.contractType]);
+  if (job.city && job.state) parts.push(`${job.city}/${job.state}`);
+  if (parts.length > 0) return parts.join(" · ");
+  return job.lookingFor || "Ver detalhes";
+}
 
 export default function CandidateJobsScreen() {
   const router = useRouter();
@@ -81,8 +96,12 @@ export default function CandidateJobsScreen() {
           <ListRow
             key={job.id}
             title={job.title}
-            subtitle={job.lookingFor}
-            meta={relativeTime(job.createdAt)}
+            subtitle={jobSubtitle(job)}
+            meta={
+              job.pcdExclusive
+                ? `${relativeTime(job.createdAt)} · PCD`
+                : relativeTime(job.createdAt)
+            }
             onPress={() => router.push(`/vaga/${job.id}` as Href)}
           />
         ))}

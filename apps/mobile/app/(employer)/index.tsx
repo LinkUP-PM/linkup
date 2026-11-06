@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   RefreshControl,
@@ -47,6 +47,9 @@ export default function EmployerHomeScreen() {
     }, [load]),
   );
 
+  const drafts = useMemo(() => items.filter((j) => j.status === "DRAFT"), [items]);
+  const published = useMemo(() => items.filter((j) => j.status === "PUBLISHED"), [items]);
+
   if (!hasLoaded) {
     return <LoadingScreen message="Carregando vagas…" />;
   }
@@ -77,20 +80,36 @@ export default function EmployerHomeScreen() {
         </View>
       ) : null}
 
-      <GroupedSection header="Vagas deste aparelho">
-        {items.map((job) => {
-          const pending = job.pendingDecisionCount ?? 0;
-          return (
+      {drafts.length > 0 ? (
+        <GroupedSection header="Rascunhos">
+          {drafts.map((job) => (
             <ListRow
               key={job.id}
               title={job.title}
-              subtitle={job.lookingFor}
-              meta={`${relativeTime(job.createdAt)} · ${pending === 0 ? "Sem decisões pendentes" : `${pending} para decidir`}`}
-              onPress={() => router.push(`/(employer)/indicados/${job.id}` as Href)}
+              subtitle="Continuar preenchimento"
+              meta={relativeTime(job.createdAt)}
+              onPress={() => router.push(`/(employer)/nova?id=${job.id}` as Href)}
             />
-          );
-        })}
-      </GroupedSection>
+          ))}
+        </GroupedSection>
+      ) : null}
+
+      {published.length > 0 ? (
+        <GroupedSection header="Publicadas">
+          {published.map((job) => {
+            const pending = job.pendingDecisionCount ?? 0;
+            return (
+              <ListRow
+                key={job.id}
+                title={job.title}
+                subtitle={job.lookingFor || "Sem requisitos listados"}
+                meta={`${relativeTime(job.createdAt)} · ${pending === 0 ? "Sem decisões pendentes" : `${pending} para decidir`}`}
+                onPress={() => router.push(`/(employer)/indicados/${job.id}` as Href)}
+              />
+            );
+          })}
+        </GroupedSection>
+      ) : null}
     </ScrollView>
   );
 }

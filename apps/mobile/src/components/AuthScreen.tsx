@@ -36,6 +36,12 @@ const DEMO_EMAIL_BY_ROLE: Record<Role, string> = {
   EMPLOYER: DEMO_ACCOUNTS.employer,
 };
 
+const CANDIDATE_SHORTCUTS = [
+  { label: "Ana Costa", email: DEMO_ACCOUNTS.ana },
+  { label: "Bruno Lima", email: DEMO_ACCOUNTS.bruno },
+  { label: "Carla Nunes", email: DEMO_ACCOUNTS.carla },
+] as const;
+
 export function AuthScreen({ role, description }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
@@ -49,9 +55,8 @@ export function AuthScreen({ role, description }: Props) {
   const demoEmail = DEMO_EMAIL_BY_ROLE[role];
 
   const canSubmit =
-    email.trim().length > 3 &&
-    password.length >= 8 &&
-    (mode === "login" || password === confirm);
+    mode === "login" ||
+    (email.trim().length > 3 && password.length >= 8 && password === confirm);
 
   function resetToRoleHome(nextRole: Role) {
     const group = homeGroupForRole(nextRole);
@@ -83,11 +88,18 @@ export function AuthScreen({ role, description }: Props) {
     }
     setBusy(true);
     try {
-      const payload = {
-        email: email.trim().toLowerCase(),
-        password,
-        role,
-      };
+      const payload =
+        mode === "login"
+          ? {
+              email: email.trim().toLowerCase() || demoEmail,
+              password: password || DEMO_PASSWORD,
+              role,
+            }
+          : {
+              email: email.trim().toLowerCase(),
+              password,
+              role,
+            };
       const result = mode === "register" ? await register(payload) : await login(payload);
       resetToRoleHome(result.user.role);
     } catch (err) {
@@ -209,6 +221,33 @@ export function AuthScreen({ role, description }: Props) {
             </Text>
           ) : null}
 
+          {mode === "login" && role === "CANDIDATE" ? (
+            <View style={styles.shortcuts}>
+              {CANDIDATE_SHORTCUTS.map((account) => {
+                const selected = email.trim().toLowerCase() === account.email;
+                return (
+                  <Pressable
+                    key={account.email}
+                    onPress={() => {
+                      setEmail(account.email);
+                      setError(null);
+                    }}
+                    style={[styles.shortcut, selected && styles.shortcutSelected]}
+                  >
+                    <Text
+                      style={[
+                        styles.shortcutLabel,
+                        selected && styles.shortcutLabelSelected,
+                      ]}
+                    >
+                      {account.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
+
           <PrimaryButton
             label={mode === "register" ? "Criar conta" : "Entrar"}
             onPress={() => void submit()}
@@ -311,6 +350,29 @@ const styles = StyleSheet.create({
     color: colors.tertiary,
     marginHorizontal: spacing.xl,
     textAlign: "center",
+  },
+  shortcuts: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+  },
+  shortcut: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.control,
+    backgroundColor: colors.surfaceElevated,
+  },
+  shortcutSelected: {
+    backgroundColor: colors.surface,
+  },
+  shortcutLabel: {
+    ...type.footnote,
+    fontFamily: fonts.bodySemi,
+    color: colors.muted,
+  },
+  shortcutLabelSelected: {
+    color: colors.ink,
   },
   submit: {
     marginHorizontal: spacing.lg,

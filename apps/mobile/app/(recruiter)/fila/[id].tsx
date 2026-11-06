@@ -11,7 +11,12 @@ import {
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import type { ApplicationStatus, ApplicationSummary, Job } from "@linkup/shared";
-import { RECRUITER_TAG_LABELS } from "@linkup/shared";
+import {
+  JOB_CONTRACT_TYPE_LABELS,
+  JOB_SENIORITY_LABELS,
+  RECRUITER_TAG_LABELS,
+  WORK_MODEL_LABELS,
+} from "@linkup/shared";
 import { ApplicationStatusPill } from "../../../src/components/ApplicationStatusPill";
 import { EmptyState } from "../../../src/components/EmptyState";
 import { getJob, listJobApplications } from "../../../src/lib/api";
@@ -91,6 +96,14 @@ function QueueCard({
             <Text style={styles.resubmitBadge}>Reenvio após ajuste</Text>
           ) : null}
         </View>
+        {item.candidateProfile?.fullName ? (
+          <Text style={styles.email} numberOfLines={1}>
+            {item.candidateProfile.fullName}
+            {item.candidateProfile.city
+              ? ` · ${item.candidateProfile.city}/${item.candidateProfile.state}`
+              : ""}
+          </Text>
+        ) : null}
         {item.candidateEmail ? (
           <Text style={styles.email} numberOfLines={1}>
             {item.candidateEmail}
@@ -200,7 +213,9 @@ export default function RecruiterQueueScreen() {
     const list = items.filter((item) => {
       if (!matchesFilter(item, filter)) return false;
       if (!q) return true;
-      return (item.candidateEmail ?? "").toLowerCase().includes(q);
+      const email = (item.candidateEmail ?? "").toLowerCase();
+      const name = (item.candidateProfile?.fullName ?? "").toLowerCase();
+      return email.includes(q) || name.includes(q);
     });
     return sortQueue(list);
   }, [items, filter, query]);
@@ -230,6 +245,18 @@ export default function RecruiterQueueScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.jobTitle}>{job?.title ?? "Vaga"}</Text>
+        {job ? (
+          <Text style={styles.lookingFor} numberOfLines={2}>
+            {[
+              job.workModel ? WORK_MODEL_LABELS[job.workModel] : null,
+              job.seniority ? JOB_SENIORITY_LABELS[job.seniority] : null,
+              job.contractType ? JOB_CONTRACT_TYPE_LABELS[job.contractType] : null,
+              job.city && job.state ? `${job.city}/${job.state}` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || job.lookingFor}
+          </Text>
+        ) : null}
         {job?.lookingFor ? (
           <Text style={styles.lookingFor} numberOfLines={2}>
             {job.lookingFor}

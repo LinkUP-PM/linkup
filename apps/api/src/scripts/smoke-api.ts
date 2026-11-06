@@ -255,17 +255,62 @@ async function main() {
     body: JSON.stringify({
       title: "Desenvolvedor mobile",
       description: "Time LinkUP construindo app em React Native.",
-      lookingFor: "TypeScript, entregas em time e clareza no currículo.",
+      status: "PUBLISHED",
+      seniority: "MID",
+      contractType: "CLT",
+      openings: 1,
+      pcdExclusive: false,
+      workModel: "REMOTE",
+      responsibilities: "Implementar telas e integrar com a API.",
+      requirements: ["TypeScript", "entregas em time", "clareza no currículo"],
+      niceToHave: ["Expo"],
+      benefits: ["Home office"],
+      stages: [
+        { label: "Envio do currículo", note: "PDF pela vaga." },
+        { label: "Triagem", note: "Recrutador analisa." },
+        { label: "Decisão", note: "Contratante decide." },
+        { label: "Entrevista", note: "Agenda." },
+      ],
     }),
   });
   const createJobBody = await expectJson(createJob, "create-job");
   if (createJob.status !== 201 || !createJobBody.id) {
     throw new Error(`POST /jobs: ${createJob.status} ${JSON.stringify(createJobBody)}`);
   }
+  if (createJobBody.status !== "PUBLISHED") {
+    throw new Error(`POST /jobs deveria publicar: ${JSON.stringify(createJobBody)}`);
+  }
   const jobId = String(createJobBody.id);
   console.log("ok  POST /jobs");
 
+  const draftJob = await fetch(`${baseUrl}/jobs`, {
+    method: "POST",
+    headers: { ...bearer(employer.token), "Content-Type": "application/json" },
+    body: JSON.stringify({
+      title: "Rascunho interno",
+      status: "DRAFT",
+    }),
+  });
+  const draftBody = await expectJson(draftJob, "create-draft");
+  if (draftJob.status !== 201 || draftBody.status !== "DRAFT") {
+    throw new Error(`POST /jobs draft: ${draftJob.status} ${JSON.stringify(draftBody)}`);
+  }
+  console.log("ok  POST /jobs draft");
+
   const candidate = await register(emailCandidate, "CANDIDATE");
+
+  const candidateJobs = await expectJson(
+    await fetch(`${baseUrl}/jobs`, { headers: bearer(candidate.token) }),
+    "candidate-jobs",
+  );
+  const candidateJobItems = (candidateJobs.items as Array<{ id?: string; status?: string }>) ?? [];
+  if (!candidateJobItems.some((j) => j.id === jobId && j.status === "PUBLISHED")) {
+    throw new Error(`candidato deveria ver a vaga publicada: ${JSON.stringify(candidateJobItems)}`);
+  }
+  if (candidateJobItems.some((j) => j.id === draftBody.id)) {
+    throw new Error("candidato não deveria ver rascunho");
+  }
+  console.log("ok  GET /jobs candidato só vê publicadas");
 
   const formApply = new FormData();
   formApply.append(

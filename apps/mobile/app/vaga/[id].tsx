@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-nat
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import type { Job, Resume } from "@linkup/shared";
 import { AnalyzingOverlay } from "../../src/components/AnalyzingOverlay";
+import { JobPreview } from "../../src/components/JobPreview";
 import { PickResumeSheet } from "../../src/components/PickResumeSheet";
 import { PrimaryButton } from "../../src/components/PrimaryButton";
 import { applyToJob, getJob, getResumeUploadInput, listResumes } from "../../src/lib/api";
@@ -75,17 +76,7 @@ export default function JobDetailScreen() {
   return (
     <>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>{job.title}</Text>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Descrição</Text>
-          <Text style={styles.body}>{job.description}</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>O que procura</Text>
-          <Text style={styles.body}>{job.lookingFor}</Text>
-        </View>
+        <JobPreview job={job} />
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -132,28 +123,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: spacing.xl,
     backgroundColor: colors.background,
-  },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    lineHeight: 34,
-    color: colors.ink,
-  },
-  section: {
-    gap: spacing.sm,
-  },
-  label: {
-    fontFamily: fonts.bodySemi,
-    fontSize: 13,
-    color: colors.accent,
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-  },
-  body: {
-    fontFamily: fonts.body,
-    fontSize: 16,
-    lineHeight: 24,
-    color: colors.ink,
   },
   error: {
     fontFamily: fonts.body,

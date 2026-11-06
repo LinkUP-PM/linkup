@@ -52,6 +52,24 @@ export default function RecruiterTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="perfil"
+        options={{
+          title: "Perfil",
+          headerTitle: () => <BrandHeaderTitle title="Perfil" />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="cadastro"
+        options={{
+          href: null,
+          title: "Cadastro",
+          headerTitle: () => <BrandHeaderTitle title="Cadastro profissional" />,
+        }}
+      />
+      <Tabs.Screen
         name="inbox"
         options={{
           href: null,

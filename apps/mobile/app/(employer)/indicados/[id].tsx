@@ -13,6 +13,7 @@ import { ApplicationStatusPill } from "../../../src/components/ApplicationStatus
 import { EmptyState } from "../../../src/components/EmptyState";
 import { GroupedSection } from "../../../src/components/GroupedSection";
 import { ListRow } from "../../../src/components/ListRow";
+import { PrimaryButton } from "../../../src/components/PrimaryButton";
 import { getJob, listJobApplications } from "../../../src/lib/api";
 import { relativeTime } from "../../../src/lib/relativeTime";
 import { colors, spacing, type } from "../../../src/theme/tokens";
@@ -67,11 +68,21 @@ export default function EmployerShortlistScreen() {
 
   if (!loading && items.length === 0) {
     return (
-      <EmptyState
-        brand
-        title="Nenhum indicado ainda"
-        body="O recrutador encaminha candidaturas da fila. Só quem foi encaminhado aparece aqui."
-      />
+      <View style={styles.emptyWrap}>
+        <EmptyState
+          brand
+          title="Nenhum indicado ainda"
+          body="O recrutador encaminha candidaturas da fila. Só quem foi encaminhado aparece aqui."
+        />
+        {id ? (
+          <PrimaryButton
+            label="Editar vaga"
+            variant="secondary"
+            onPress={() => router.push(`/(employer)/nova?id=${id}` as Href)}
+            style={styles.editBtn}
+          />
+        ) : null}
+      </View>
     );
   }
 
@@ -80,7 +91,16 @@ export default function EmployerShortlistScreen() {
       contentContainerStyle={styles.container}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.accent} />}
     >
-      <Text style={styles.jobTitle}>{job?.title ?? "Vaga"}</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.jobTitle}>{job?.title ?? "Vaga"}</Text>
+        {id ? (
+          <PrimaryButton
+            label="Editar"
+            variant="ghost"
+            onPress={() => router.push(`/(employer)/nova?id=${id}` as Href)}
+          />
+        ) : null}
+      </View>
 
       <GroupedSection header={`Para decidir (${pending.length})`}>
         {pending.length === 0 ? (
@@ -89,8 +109,16 @@ export default function EmployerShortlistScreen() {
           pending.map((item) => (
             <ListRow
               key={item.id}
-              title={`Encaminhada ${relativeTime(item.updatedAt)}`}
-              subtitle="Abrir leitura curta"
+              title={
+                item.candidateProfile?.fullName ??
+                item.candidateEmail ??
+                `Encaminhada ${relativeTime(item.updatedAt)}`
+              }
+              subtitle={
+                item.candidateProfile
+                  ? `${item.candidateProfile.city}/${item.candidateProfile.state} · Encaminhada ${relativeTime(item.updatedAt)}`
+                  : `Encaminhada ${relativeTime(item.updatedAt)}`
+              }
               accessory={<ApplicationStatusPill status={item.status} />}
               onPress={() => router.push(`/dossie/${item.id}` as Href)}
             />
@@ -105,8 +133,17 @@ export default function EmployerShortlistScreen() {
           decided.map((item) => (
             <ListRow
               key={item.id}
-              title={`Atualizada ${relativeTime(item.updatedAt)}`}
-              subtitle={item.decisionMessage ?? undefined}
+              title={
+                item.candidateProfile?.fullName ??
+                item.candidateEmail ??
+                `Atualizada ${relativeTime(item.updatedAt)}`
+              }
+              subtitle={
+                item.decisionMessage ??
+                (item.candidateProfile
+                  ? `${item.candidateProfile.city}/${item.candidateProfile.state}`
+                  : undefined)
+              }
               accessory={<ApplicationStatusPill status={item.status} />}
               onPress={() => router.push(`/dossie/${item.id}` as Href)}
             />
@@ -130,11 +167,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: colors.background,
   },
+  emptyWrap: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingBottom: spacing.tabBarClearance,
+  },
+  editBtn: {
+    marginHorizontal: spacing.lg,
+  },
+  titleRow: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.xs,
+  },
   jobTitle: {
     ...type.title1,
     color: colors.ink,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
   },
   emptyHint: {
     ...type.footnote,

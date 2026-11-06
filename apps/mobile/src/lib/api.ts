@@ -8,26 +8,62 @@ import type {
   ApplicationStatus,
   ApplicationSummary,
   AuthResponse,
+  CandidateProfile,
+  CandidateProfileInput,
+  CandidateProfileSummary,
   DecisionAction,
+  EmployerProfile,
+  EmployerProfileInput,
   Interview,
   InterviewRespondAction,
   InterviewStatus,
   Job,
+  JobContractType,
+  JobInput,
+  JobSeniority,
+  JobStatus,
   Me,
   RecruiterNoteAction,
   RecruiterNoteEntry,
+  RecruiterProfile,
+  RecruiterProfileInput,
   RecruiterTag,
   Resume,
   ResumeKind,
   Role,
+  WorkModel,
 } from "@linkup/shared";
-import { MAIN_RESUME_LABEL, MAX_FOCUSED_RESUMES, normalizeRecruiterTags } from "@linkup/shared";
+import {
+  canPublishJob,
+  DEFAULT_JOB_STAGES,
+  isJobContractType,
+  isJobSeniority,
+  isJobStatus,
+  isWorkModel,
+  lookingForFromRequirements,
+  MAIN_RESUME_LABEL,
+  MAX_FOCUSED_RESUMES,
+  normalizeJobStages,
+  normalizeRecruiterTags,
+  normalizeStringList,
+} from "@linkup/shared";
+import {
+  getLaudoFileUri,
+  loadCandidateProfile,
+  loadCandidateProfileSummaries,
+  loadCandidateProfileSummary,
+  saveCandidateProfile,
+  updateLaudoMeta,
+} from "./candidate-profile";
 import { getDb } from "./db";
+import { loadEmployerProfile, saveEmployerProfile } from "./employer-profile";
 import { fail } from "./errors";
 import { createId, createSessionToken, hashToken } from "./ids";
+import { deleteLaudoPdf, storeLaudoPdf } from "./laudo-files";
 import { mockAnalysisResult } from "./mock-analysis";
 import { hashPassword, verifyPassword } from "./password";
 import { extractPdfText, readPdfBytes, type PdfByteSource } from "./pdf";
+import { loadRecruiterProfile, saveRecruiterProfile } from "./recruiter-profile";
 import {
   deleteResumePdf,
   storeResumePdf,
@@ -66,6 +102,23 @@ type JobRow = {
   title: string;
   description: string;
   looking_for: string;
+  status: JobStatus | null;
+  seniority: JobSeniority | null;
+  contract_type: JobContractType | null;
+  openings: number | null;
+  pcd_exclusive: number | null;
+  work_model: WorkModel | null;
+  city: string | null;
+  state: string | null;
+  responsibilities: string | null;
+  requirements_json: string | null;
+  nice_to_have_json: string | null;
+  benefits_json: string | null;
+  salary_min: number | null;
+  salary_max: number | null;
+  additional_info: string | null;
+  stages_json: string | null;
+  published_at: string | null;
   employer_id: string;
   created_at: string;
   updated_at: string;
@@ -185,14 +238,51 @@ type JobCounts = {
   closedCount?: number;
 };
 
+function parseJsonList(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    return normalizeStringList(JSON.parse(raw) as unknown);
+  } catch {
+    return [];
+  }
+}
+
+function parseJsonStages(raw: string | null | undefined) {
+  if (!raw) return [...DEFAULT_JOB_STAGES];
+  try {
+    return normalizeJobStages(JSON.parse(raw) as unknown);
+  } catch {
+    return [...DEFAULT_JOB_STAGES];
+  }
+}
+
 function toJob(row: JobRow, counts?: JobCounts): Job {
+  const status: JobStatus =
+    row.status === "DRAFT" || row.status === "PUBLISHED" ? row.status : "PUBLISHED";
   const job: Job = {
     id: row.id,
     title: row.title,
-    description: row.description,
-    lookingFor: row.looking_for,
+    description: row.description ?? "",
+    lookingFor: row.looking_for ?? "",
     employerId: row.employer_id,
     createdAt: row.created_at,
+    status,
+    seniority: isJobSeniority(row.seniority) ? row.seniority : null,
+    contractType: isJobContractType(row.contract_type) ? row.contract_type : null,
+    openings: typeof row.openings === "number" && row.openings >= 1 ? row.openings : 1,
+    pcdExclusive: Boolean(row.pcd_exclusive),
+    workModel: isWorkModel(row.work_model) ? row.work_model : null,
+    city: row.city?.trim() ? row.city.trim() : null,
+    state: row.state?.trim() ? row.state.trim().toUpperCase() : null,
+    responsibilities: row.responsibilities ?? "",
+    requirements: parseJsonList(row.requirements_json),
+    niceToHave: parseJsonList(row.nice_to_have_json),
+    benefits: parseJsonList(row.benefits_json),
+    salaryMin: row.salary_min,
+    salaryMax: row.salary_max,
+    additionalInfo: row.additional_info ?? "",
+    stages: parseJsonStages(row.stages_json),
+    publishedAt: row.published_at,
   };
   if (counts?.queueCount !== undefined) job.queueCount = counts.queueCount;
   if (counts?.pendingDecisionCount !== undefined) {
@@ -202,6 +292,118 @@ function toJob(row: JobRow, counts?: JobCounts): Job {
   if (counts?.adjustmentCount !== undefined) job.adjustmentCount = counts.adjustmentCount;
   if (counts?.closedCount !== undefined) job.closedCount = counts.closedCount;
   return job;
+}
+
+function normalizeJobInput(input: JobInput, opts: { publish: boolean }) {
+  const title = (input.title ?? "").trim();
+  if (title.length < 3) {
+    fail("INVALID_BODY", "Informe um título com pelo menos 3 caracteres.");
+  }
+
+  const status: JobStatus = opts.publish
+    ? "PUBLISHED"
+    : isJobStatus(input.status)
+      ? input.status
+      : "DRAFT";
+
+  const description = (input.description ?? "").trim();
+  const responsibilities = (input.responsibilities ?? "").trim();
+  const additionalInfo = (input.additionalInfo ?? "").trim();
+  const requirements = normalizeStringList(input.requirements);
+  const niceToHave = normalizeStringList(input.niceToHave);
+  const benefits = normalizeStringList(input.benefits);
+  const stages =
+    input.stages === undefined ? [...DEFAULT_JOB_STAGES] : normalizeJobStages(input.stages);
+
+  let seniority: JobSeniority | null = null;
+  if (input.seniority != null) {
+    if (!isJobSeniority(input.seniority)) fail("INVALID_BODY", "Senioridade inválida.");
+    seniority = input.seniority;
+  }
+  let contractType: JobContractType | null = null;
+  if (input.contractType != null) {
+    if (!isJobContractType(input.contractType)) fail("INVALID_BODY", "Tipo de contrato inválido.");
+    contractType = input.contractType;
+  }
+  let workModel: WorkModel | null = null;
+  if (input.workModel != null) {
+    if (!isWorkModel(input.workModel)) fail("INVALID_BODY", "Modalidade inválida.");
+    workModel = input.workModel;
+  }
+
+  let openings = 1;
+  if (input.openings !== undefined && input.openings !== null) {
+    const n = Number(input.openings);
+    if (!Number.isInteger(n) || n < 1 || n > 99) {
+      fail("INVALID_BODY", "Quantidade de posições deve ser entre 1 e 99.");
+    }
+    openings = n;
+  }
+
+  const city = (input.city ?? "").trim() || null;
+  const state = (input.state ?? "").trim().toUpperCase() || null;
+  const pcdExclusive = Boolean(input.pcdExclusive);
+
+  let salaryMin: number | null = null;
+  let salaryMax: number | null = null;
+  if (input.salaryMin !== undefined && input.salaryMin !== null) {
+    const n = Number(input.salaryMin);
+    if (!Number.isInteger(n) || n < 0) fail("INVALID_BODY", "Salário mínimo inválido.");
+    salaryMin = n;
+  }
+  if (input.salaryMax !== undefined && input.salaryMax !== null) {
+    const n = Number(input.salaryMax);
+    if (!Number.isInteger(n) || n < 0) fail("INVALID_BODY", "Salário máximo inválido.");
+    salaryMax = n;
+  }
+  if ((salaryMin !== null && salaryMax === null) || (salaryMin === null && salaryMax !== null)) {
+    fail("INVALID_BODY", "Informe a faixa salarial completa ou deixe em branco.");
+  }
+  if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) {
+    fail("INVALID_BODY", "O salário mínimo não pode ser maior que o máximo.");
+  }
+
+  const lookingFor =
+    requirements.length > 0
+      ? lookingForFromRequirements(requirements)
+      : (input.lookingFor ?? "").trim();
+
+  const finalStatus = opts.publish ? "PUBLISHED" : status;
+  if (finalStatus === "PUBLISHED") {
+    const err = canPublishJob({
+      title,
+      description,
+      workModel,
+      city,
+      state,
+      seniority,
+      contractType,
+      requirements,
+    });
+    if (err) fail("INVALID_BODY", err);
+  }
+
+  return {
+    title,
+    description,
+    lookingFor,
+    status: finalStatus,
+    seniority,
+    contractType,
+    openings,
+    pcdExclusive,
+    workModel,
+    city,
+    state,
+    responsibilities,
+    requirements,
+    niceToHave,
+    benefits,
+    salaryMin,
+    salaryMax,
+    additionalInfo,
+    stages,
+  };
 }
 
 function previewSkillsFromResultJson(resultJson: string | null | undefined): string[] {
@@ -351,7 +553,12 @@ function toAnalysisDetail(row: AnalysisRow): AnalysisDetail {
 
 function toInterview(
   row: InterviewRow,
-  ctx: { jobId: string; jobTitle: string; candidateEmail?: string | null },
+  ctx: {
+    jobId: string;
+    jobTitle: string;
+    candidateEmail?: string | null;
+    candidateName?: string | null;
+  },
   includeEmail: boolean,
 ): Interview {
   const interview: Interview = {
@@ -367,6 +574,9 @@ function toInterview(
   if (includeEmail && ctx.candidateEmail) {
     interview.candidateEmail = ctx.candidateEmail;
   }
+  if (includeEmail && ctx.candidateName) {
+    interview.candidateName = ctx.candidateName;
+  }
   return interview;
 }
 
@@ -380,6 +590,7 @@ function toApplicationSummary(
     includeDecisionMessage?: boolean;
     recruiterPreview?: boolean;
     includeCandidateEmail?: boolean;
+    candidateProfile?: CandidateProfileSummary | null;
     previewSkills?: string[];
     previewStrengths?: string[];
     previewAttention?: string[];
@@ -410,6 +621,9 @@ function toApplicationSummary(
   if (opts?.includeCandidateEmail && row.candidate_email) {
     summary.candidateEmail = row.candidate_email;
   }
+  if (opts?.candidateProfile) {
+    summary.candidateProfile = opts.candidateProfile;
+  }
   if (opts?.interviewStatus !== undefined) {
     summary.interviewStatus = opts.interviewStatus;
   }
@@ -425,11 +639,14 @@ function toApplicationDetail(
   analysis?: AnalysisRow | null,
   notes?: RecruiterNoteEntry[],
   interviews?: Interview[],
+  candidateProfile?: CandidateProfileSummary | null,
 ): ApplicationDetail {
   const current = interviews ? currentInterviewFromList(interviews) : null;
   const detail: ApplicationDetail = toApplicationSummary(row, {
     recruiterPreview: viewer === "RECRUITER",
     includeCandidateEmail: viewer === "EMPLOYER",
+    candidateProfile:
+      viewer === "RECRUITER" || viewer === "EMPLOYER" ? candidateProfile ?? null : undefined,
     previewSkills:
       viewer === "RECRUITER" ? previewSkillsFromResultJson(analysis?.result_json) : undefined,
     previewStrengths:
@@ -580,7 +797,12 @@ async function loadApplication(id: string): Promise<ApplicationRow | null> {
 
 async function loadInterviewsForApplication(
   applicationId: string,
-  ctx: { jobId: string; jobTitle: string; candidateEmail?: string | null },
+  ctx: {
+    jobId: string;
+    jobTitle: string;
+    candidateEmail?: string | null;
+    candidateName?: string | null;
+  },
   includeEmail: boolean,
 ): Promise<Interview[]> {
   const db = await getDb();
@@ -783,6 +1005,55 @@ export async function getMe(): Promise<Me> {
   return toMe(user);
 }
 
+export async function getCandidateProfile(): Promise<CandidateProfile> {
+  const user = await requireRole("CANDIDATE");
+  return loadCandidateProfile(user.id);
+}
+
+export async function updateCandidateProfile(
+  input: CandidateProfileInput,
+): Promise<CandidateProfile> {
+  const user = await requireRole("CANDIDATE");
+  return saveCandidateProfile(user.id, input);
+}
+
+export async function uploadCandidateLaudo(input: UploadFileInput): Promise<CandidateProfile> {
+  const user = await requireRole("CANDIDATE");
+  const stored = await storeLaudoPdf({ userId: user.id, input });
+  return updateLaudoMeta(user.id, stored);
+}
+
+export async function deleteCandidateLaudo(): Promise<CandidateProfile> {
+  const user = await requireRole("CANDIDATE");
+  const uri = await getLaudoFileUri(user.id);
+  await deleteLaudoPdf(uri);
+  return updateLaudoMeta(user.id, null);
+}
+
+export async function getEmployerProfile(): Promise<EmployerProfile> {
+  const user = await requireRole("EMPLOYER");
+  return loadEmployerProfile(user.id);
+}
+
+export async function updateEmployerProfile(
+  input: EmployerProfileInput,
+): Promise<EmployerProfile> {
+  const user = await requireRole("EMPLOYER");
+  return saveEmployerProfile(user.id, input);
+}
+
+export async function getRecruiterProfile(): Promise<RecruiterProfile> {
+  const user = await requireRole("RECRUITER");
+  return loadRecruiterProfile(user.id);
+}
+
+export async function updateRecruiterProfile(
+  input: RecruiterProfileInput,
+): Promise<RecruiterProfile> {
+  const user = await requireRole("RECRUITER");
+  return saveRecruiterProfile(user.id, input);
+}
+
 export async function listJobs(): Promise<Job[]> {
   const user = await requireUser();
   const db = await getDb();
@@ -792,7 +1063,9 @@ export async function listJobs(): Promise<Job[]> {
           `SELECT * FROM jobs WHERE employer_id = ? ORDER BY created_at DESC`,
           user.id,
         )
-      : await db.getAllAsync<JobRow>(`SELECT * FROM jobs ORDER BY created_at DESC`);
+      : await db.getAllAsync<JobRow>(
+          `SELECT * FROM jobs WHERE status = 'PUBLISHED' ORDER BY created_at DESC`,
+        );
 
   const counts = await countsForJobs(rows.map((r) => r.id));
   return rows.map((row) => {
@@ -825,7 +1098,10 @@ export async function getJob(id: string): Promise<Job> {
           id,
           user.id,
         )
-      : await db.getFirstAsync<JobRow>(`SELECT * FROM jobs WHERE id = ?`, id);
+      : await db.getFirstAsync<JobRow>(
+          `SELECT * FROM jobs WHERE id = ? AND status = 'PUBLISHED'`,
+          id,
+        );
 
   if (!row) fail("NOT_FOUND", "Vaga não encontrada.");
 
@@ -848,42 +1124,154 @@ export async function getJob(id: string): Promise<Job> {
   return toJob(row);
 }
 
-export async function createJob(input: {
-  title: string;
-  description: string;
-  lookingFor: string;
-}): Promise<Job> {
+const JOB_INSERT_COLS = `id, title, description, looking_for, status, seniority, contract_type,
+  openings, pcd_exclusive, work_model, city, state, responsibilities, requirements_json,
+  nice_to_have_json, benefits_json, salary_min, salary_max, additional_info, stages_json,
+  published_at, employer_id, created_at, updated_at`;
+
+export async function createJob(input: JobInput): Promise<Job> {
   const user = await requireRole("EMPLOYER");
-  const title = input.title.trim();
-  const description = input.description.trim();
-  const lookingFor = input.lookingFor.trim();
-  if (title.length < 3 || description.length < 3 || lookingFor.length < 3) {
-    fail("INVALID_BODY", "Preencha título, descrição e o que busca com pelo menos 3 caracteres.");
-  }
+  const publish = input.status === "PUBLISHED";
+  const fields = normalizeJobInput(input, { publish });
 
   const db = await getDb();
   const id = await createId();
   const createdAt = nowIso();
+  const publishedAt = fields.status === "PUBLISHED" ? createdAt : null;
+
   await db.runAsync(
-    `INSERT INTO jobs (id, title, description, looking_for, employer_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO jobs (${JOB_INSERT_COLS})
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     id,
-    title,
-    description,
-    lookingFor,
+    fields.title,
+    fields.description,
+    fields.lookingFor,
+    fields.status,
+    fields.seniority,
+    fields.contractType,
+    fields.openings,
+    fields.pcdExclusive ? 1 : 0,
+    fields.workModel,
+    fields.city,
+    fields.state,
+    fields.responsibilities,
+    JSON.stringify(fields.requirements),
+    JSON.stringify(fields.niceToHave),
+    JSON.stringify(fields.benefits),
+    fields.salaryMin,
+    fields.salaryMax,
+    fields.additionalInfo,
+    JSON.stringify(fields.stages),
+    publishedAt,
     user.id,
     createdAt,
     createdAt,
   );
 
-  return {
+  return toJob({
     id,
-    title,
-    description,
-    lookingFor,
-    employerId: user.id,
-    createdAt,
-  };
+    title: fields.title,
+    description: fields.description,
+    looking_for: fields.lookingFor,
+    status: fields.status,
+    seniority: fields.seniority,
+    contract_type: fields.contractType,
+    openings: fields.openings,
+    pcd_exclusive: fields.pcdExclusive ? 1 : 0,
+    work_model: fields.workModel,
+    city: fields.city,
+    state: fields.state,
+    responsibilities: fields.responsibilities,
+    requirements_json: JSON.stringify(fields.requirements),
+    nice_to_have_json: JSON.stringify(fields.niceToHave),
+    benefits_json: JSON.stringify(fields.benefits),
+    salary_min: fields.salaryMin,
+    salary_max: fields.salaryMax,
+    additional_info: fields.additionalInfo,
+    stages_json: JSON.stringify(fields.stages),
+    published_at: publishedAt,
+    employer_id: user.id,
+    created_at: createdAt,
+    updated_at: createdAt,
+  });
+}
+
+export async function updateJob(id: string, input: JobInput): Promise<Job> {
+  const user = await requireRole("EMPLOYER");
+  const publish = input.status === "PUBLISHED";
+  const fields = normalizeJobInput(input, { publish });
+
+  const db = await getDb();
+  const existing = await db.getFirstAsync<JobRow>(
+    `SELECT * FROM jobs WHERE id = ? AND employer_id = ?`,
+    id,
+    user.id,
+  );
+  if (!existing) fail("NOT_FOUND", "Vaga não encontrada.");
+
+  const updatedAt = nowIso();
+  const publishedAt =
+    fields.status === "PUBLISHED"
+      ? (existing.published_at ?? updatedAt)
+      : existing.published_at;
+
+  await db.runAsync(
+    `UPDATE jobs SET
+      title = ?, description = ?, looking_for = ?, status = ?, seniority = ?,
+      contract_type = ?, openings = ?, pcd_exclusive = ?, work_model = ?, city = ?,
+      state = ?, responsibilities = ?, requirements_json = ?, nice_to_have_json = ?,
+      benefits_json = ?, salary_min = ?, salary_max = ?, additional_info = ?,
+      stages_json = ?, published_at = ?, updated_at = ?
+     WHERE id = ? AND employer_id = ?`,
+    fields.title,
+    fields.description,
+    fields.lookingFor,
+    fields.status,
+    fields.seniority,
+    fields.contractType,
+    fields.openings,
+    fields.pcdExclusive ? 1 : 0,
+    fields.workModel,
+    fields.city,
+    fields.state,
+    fields.responsibilities,
+    JSON.stringify(fields.requirements),
+    JSON.stringify(fields.niceToHave),
+    JSON.stringify(fields.benefits),
+    fields.salaryMin,
+    fields.salaryMax,
+    fields.additionalInfo,
+    JSON.stringify(fields.stages),
+    publishedAt,
+    updatedAt,
+    id,
+    user.id,
+  );
+
+  return toJob({
+    ...existing,
+    title: fields.title,
+    description: fields.description,
+    looking_for: fields.lookingFor,
+    status: fields.status,
+    seniority: fields.seniority,
+    contract_type: fields.contractType,
+    openings: fields.openings,
+    pcd_exclusive: fields.pcdExclusive ? 1 : 0,
+    work_model: fields.workModel,
+    city: fields.city,
+    state: fields.state,
+    responsibilities: fields.responsibilities,
+    requirements_json: JSON.stringify(fields.requirements),
+    nice_to_have_json: JSON.stringify(fields.niceToHave),
+    benefits_json: JSON.stringify(fields.benefits),
+    salary_min: fields.salaryMin,
+    salary_max: fields.salaryMax,
+    additional_info: fields.additionalInfo,
+    stages_json: JSON.stringify(fields.stages),
+    published_at: publishedAt,
+    updated_at: updatedAt,
+  });
 }
 
 export async function listJobApplications(jobId: string): Promise<ApplicationSummary[]> {
@@ -903,17 +1291,27 @@ export async function listJobApplications(jobId: string): Promise<ApplicationSum
     if (!job) fail("NOT_FOUND", "Vaga não encontrada.");
 
     const rows = await db.getAllAsync<ApplicationRow>(
-      `SELECT a.*, j.title as job_title, j.employer_id as employer_id
+      `SELECT a.*, j.title as job_title, j.employer_id as employer_id, u.email as candidate_email
        FROM applications a
        JOIN jobs j ON j.id = a.job_id
+       JOIN users u ON u.id = a.candidate_id
        WHERE a.job_id = ? AND a.status NOT IN ('SUBMITTED', 'DISCARDED')
        ORDER BY a.updated_at DESC`,
       jobId,
     );
-    return rows.map((row) => toApplicationSummary(row));
+    const profiles = await loadCandidateProfileSummaries(rows.map((row) => row.candidate_id));
+    return rows.map((row) =>
+      toApplicationSummary(row, {
+        includeCandidateEmail: true,
+        candidateProfile: profiles.get(row.candidate_id) ?? null,
+      }),
+    );
   }
 
-  const job = await db.getFirstAsync<JobRow>(`SELECT * FROM jobs WHERE id = ?`, jobId);
+  const job = await db.getFirstAsync<JobRow>(
+    `SELECT * FROM jobs WHERE id = ? AND status = 'PUBLISHED'`,
+    jobId,
+  );
   if (!job) fail("NOT_FOUND", "Vaga não encontrada.");
 
   try {
@@ -930,10 +1328,12 @@ export async function listJobApplications(jobId: string): Promise<ApplicationSum
        ORDER BY a.created_at DESC`,
       jobId,
     );
+    const profiles = await loadCandidateProfileSummaries(rows.map((row) => row.candidate_id));
     return rows.map((row) =>
       toApplicationSummary(row, {
         includeDecisionMessage: true,
         recruiterPreview: true,
+        candidateProfile: profiles.get(row.candidate_id) ?? null,
         previewSkills: previewSkillsFromResultJson(row.result_json),
         previewStrengths: previewStrengthsFromResultJson(row.result_json),
         previewAttention: previewAttentionFromResultJson(row.result_json),
@@ -941,15 +1341,21 @@ export async function listJobApplications(jobId: string): Promise<ApplicationSum
     );
   } catch {
     const rows = await db.getAllAsync<ApplicationRow>(
-      `SELECT a.*, j.title as job_title, j.employer_id as employer_id
+      `SELECT a.*, j.title as job_title, j.employer_id as employer_id, u.email as candidate_email
        FROM applications a
        JOIN jobs j ON j.id = a.job_id
+       JOIN users u ON u.id = a.candidate_id
        WHERE a.job_id = ?
        ORDER BY a.created_at DESC`,
       jobId,
     );
+    const profiles = await loadCandidateProfileSummaries(rows.map((row) => row.candidate_id));
     return rows.map((row) =>
-      toApplicationSummary(row, { includeDecisionMessage: true, recruiterPreview: true }),
+      toApplicationSummary(row, {
+        includeDecisionMessage: true,
+        recruiterPreview: true,
+        candidateProfile: profiles.get(row.candidate_id) ?? null,
+      }),
     );
   }
 }
@@ -964,14 +1370,16 @@ export async function listTriageInbox(): Promise<ApplicationSummary[]> {
      JOIN jobs j ON j.id = a.job_id
      JOIN users u ON u.id = a.candidate_id
      LEFT JOIN analyses an ON an.id = a.analysis_id
-     WHERE a.status = 'SUBMITTED'
+     WHERE a.status = 'SUBMITTED' AND j.status = 'PUBLISHED'
      ORDER BY a.created_at DESC`,
   );
+  const profiles = await loadCandidateProfileSummaries(rows.map((row) => row.candidate_id));
   return sortTriageQueue(
     rows.map((row) =>
       toApplicationSummary(row, {
         includeDecisionMessage: true,
         recruiterPreview: true,
+        candidateProfile: profiles.get(row.candidate_id) ?? null,
         previewSkills: previewSkillsFromResultJson(row.result_json),
         previewStrengths: previewStrengthsFromResultJson(row.result_json),
         previewAttention: previewAttentionFromResultJson(row.result_json),
@@ -987,7 +1395,10 @@ export async function applyToJob(
   const user = await requireRole("CANDIDATE");
   const db = await getDb();
 
-  const job = await db.getFirstAsync<JobRow>(`SELECT * FROM jobs WHERE id = ?`, jobId);
+  const job = await db.getFirstAsync<JobRow>(
+    `SELECT * FROM jobs WHERE id = ? AND status = 'PUBLISHED'`,
+    jobId,
+  );
   if (!job) fail("NOT_FOUND", "Vaga não encontrada.");
 
   const existing = await db.getFirstAsync<{ id: string }>(
@@ -1064,10 +1475,16 @@ export async function getApplication(id: string): Promise<ApplicationDetail> {
   const row = await loadApplication(id);
   if (!row) fail("NOT_FOUND", "Candidatura não encontrada.");
 
+  const profileSummary =
+    user.role === "RECRUITER" || user.role === "EMPLOYER"
+      ? await loadCandidateProfileSummary(row.candidate_id)
+      : null;
+
   const interviewCtx = {
     jobId: row.job_id,
     jobTitle: row.job_title,
     candidateEmail: row.candidate_email,
+    candidateName: profileSummary?.fullName ?? null,
   };
 
   if (user.role === "CANDIDATE") {
@@ -1082,7 +1499,7 @@ export async function getApplication(id: string): Promise<ApplicationDetail> {
     const analysis = await loadAnalysis(row.analysis_id);
     const notes = await loadNoteEntries(id);
     const interviews = await loadInterviewsForApplication(id, interviewCtx, true);
-    return toApplicationDetail(row, "RECRUITER", analysis, notes, interviews);
+    return toApplicationDetail(row, "RECRUITER", analysis, notes, interviews, profileSummary);
   }
 
   if (user.role === "EMPLOYER") {
@@ -1091,7 +1508,7 @@ export async function getApplication(id: string): Promise<ApplicationDetail> {
     }
     const analysis = await loadAnalysis(row.analysis_id);
     const interviews = await loadInterviewsForApplication(id, interviewCtx, true);
-    return toApplicationDetail(row, "EMPLOYER", analysis, undefined, interviews);
+    return toApplicationDetail(row, "EMPLOYER", analysis, undefined, interviews, profileSummary);
   }
 
   fail("FORBIDDEN", "Esta ação não está disponível para o seu papel.");
@@ -1290,11 +1707,16 @@ type AgendaEventRow = {
   created_at: string;
   job_id: string;
   job_title: string;
+  candidate_id: string;
   candidate_email?: string | null;
   interview_status?: InterviewStatus | null;
 };
 
-function toAgendaItem(row: AgendaEventRow, includeEmail: boolean): AgendaItem {
+function toAgendaItem(
+  row: AgendaEventRow,
+  includeEmail: boolean,
+  candidateName?: string | null,
+): AgendaItem {
   const item: AgendaItem = {
     id: row.id,
     applicationId: row.application_id,
@@ -1307,10 +1729,26 @@ function toAgendaItem(row: AgendaEventRow, includeEmail: boolean): AgendaItem {
   if (includeEmail && row.candidate_email) {
     item.candidateEmail = row.candidate_email;
   }
+  if (includeEmail && candidateName) {
+    item.candidateName = candidateName;
+  }
   if (row.interview_status) {
     item.interviewStatus = row.interview_status;
   }
   return item;
+}
+
+async function mapAgendaRows(
+  rows: AgendaEventRow[],
+  includeEmail: boolean,
+): Promise<AgendaItem[]> {
+  if (!includeEmail || rows.length === 0) {
+    return rows.map((row) => toAgendaItem(row, includeEmail));
+  }
+  const profiles = await loadCandidateProfileSummaries(rows.map((row) => row.candidate_id));
+  return rows.map((row) =>
+    toAgendaItem(row, includeEmail, profiles.get(row.candidate_id)?.fullName ?? null),
+  );
 }
 
 export async function listAgenda(): Promise<AgendaItem[]> {
@@ -1320,6 +1758,7 @@ export async function listAgenda(): Promise<AgendaItem[]> {
   const baseSelect = `
     SELECT e.id, e.application_id, e.type, e.at, e.created_at,
            a.job_id as job_id, j.title as job_title,
+           a.candidate_id as candidate_id,
            u.email as candidate_email,
            (
              SELECT i.status FROM interviews i
@@ -1341,7 +1780,7 @@ export async function listAgenda(): Promise<AgendaItem[]> {
        ORDER BY e.at ASC, e.created_at ASC`,
       user.id,
     );
-    return rows.map((row) => toAgendaItem(row, false));
+    return mapAgendaRows(rows, false);
   }
 
   if (user.role === "EMPLOYER") {
@@ -1351,7 +1790,7 @@ export async function listAgenda(): Promise<AgendaItem[]> {
        ORDER BY e.at ASC, e.created_at ASC`,
       user.id,
     );
-    return rows.map((row) => toAgendaItem(row, true));
+    return mapAgendaRows(rows, true);
   }
 
   if (user.role === "RECRUITER") {
@@ -1359,7 +1798,7 @@ export async function listAgenda(): Promise<AgendaItem[]> {
       `${baseSelect}
        ORDER BY e.at ASC, e.created_at ASC`,
     );
-    return rows.map((row) => toAgendaItem(row, true));
+    return mapAgendaRows(rows, true);
   }
 
   fail("FORBIDDEN", "Esta ação não está disponível para o seu papel.");
@@ -1392,8 +1831,9 @@ export async function listInterviews(): Promise<Interview[]> {
   }
 
   if (user.role === "EMPLOYER") {
-    const rows = await db.getAllAsync<InterviewRow>(
-      `SELECT i.*, a.job_id as job_id, j.title as job_title, u.email as candidate_email
+    const rows = await db.getAllAsync<InterviewRow & { candidate_id: string }>(
+      `SELECT i.*, a.job_id as job_id, j.title as job_title, a.candidate_id as candidate_id,
+              u.email as candidate_email
        FROM interviews i
        JOIN applications a ON a.id = i.application_id
        JOIN jobs j ON j.id = a.job_id
@@ -1402,6 +1842,7 @@ export async function listInterviews(): Promise<Interview[]> {
        ORDER BY i.scheduled_at ASC`,
       user.id,
     );
+    const profiles = await loadCandidateProfileSummaries(rows.map((row) => row.candidate_id));
     return rows.map((row) =>
       toInterview(
         row,
@@ -1409,6 +1850,7 @@ export async function listInterviews(): Promise<Interview[]> {
           jobId: row.job_id ?? "",
           jobTitle: row.job_title ?? "",
           candidateEmail: row.candidate_email,
+          candidateName: profiles.get(row.candidate_id)?.fullName ?? null,
         },
         true,
       ),
@@ -1416,14 +1858,16 @@ export async function listInterviews(): Promise<Interview[]> {
   }
 
   if (user.role === "RECRUITER") {
-    const rows = await db.getAllAsync<InterviewRow>(
-      `SELECT i.*, a.job_id as job_id, j.title as job_title, u.email as candidate_email
+    const rows = await db.getAllAsync<InterviewRow & { candidate_id: string }>(
+      `SELECT i.*, a.job_id as job_id, j.title as job_title, a.candidate_id as candidate_id,
+              u.email as candidate_email
        FROM interviews i
        JOIN applications a ON a.id = i.application_id
        JOIN jobs j ON j.id = a.job_id
        JOIN users u ON u.id = a.candidate_id
        ORDER BY i.scheduled_at ASC`,
     );
+    const profiles = await loadCandidateProfileSummaries(rows.map((row) => row.candidate_id));
     return rows.map((row) =>
       toInterview(
         row,
@@ -1431,6 +1875,7 @@ export async function listInterviews(): Promise<Interview[]> {
           jobId: row.job_id ?? "",
           jobTitle: row.job_title ?? "",
           candidateEmail: row.candidate_email,
+          candidateName: profiles.get(row.candidate_id)?.fullName ?? null,
         },
         true,
       ),
@@ -1796,6 +2241,13 @@ export async function deleteResume(resumeId: string): Promise<void> {
   const db = await getDb();
   await db.runAsync(`DELETE FROM resumes WHERE id = ?`, row.id);
   await deleteResumePdf(row.file_uri);
+}
+
+/** URI local do PDF salvo (abrir no visualizador do sistema). */
+export async function getResumeFileUri(resumeId: string): Promise<{ uri: string; fileName: string }> {
+  const user = await requireRole("CANDIDATE");
+  const row = await loadResumeForUser(user.id, resumeId);
+  return { uri: row.file_uri, fileName: row.file_name };
 }
 
 /** Lê o PDF salvo e devolve o mesmo formato usado no upload. */

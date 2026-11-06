@@ -305,6 +305,7 @@ export async function seedDemo(db: SeedDatabase): Promise<void> {
     IDS.carla,
   );
   if ((existing?.c ?? 0) >= 5) {
+    await seedDemoProfiles(db);
     await seedDemoInterview(db);
     await seedDemoEvents(db);
     return;
@@ -333,25 +334,78 @@ export async function seedDemo(db: SeedDatabase): Promise<void> {
     );
   }
 
+  const defaultStages = JSON.stringify([
+    { label: "Envio do currículo", note: "O candidato encaminha o PDF pela vaga." },
+    { label: "Triagem", note: "O recrutador analisa e encaminha ou descarta." },
+    { label: "Decisão", note: "O contratante aceita, rejeita ou pede ajuste." },
+    { label: "Entrevista", note: "Quando houver avanço, a data aparece na agenda." },
+  ]);
+
   await db.runAsync(
-    `INSERT OR IGNORE INTO jobs (id, title, description, looking_for, employer_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR IGNORE INTO jobs (
+       id, title, description, looking_for, status, seniority, contract_type, openings,
+       pcd_exclusive, work_model, city, state, responsibilities, requirements_json,
+       nice_to_have_json, benefits_json, salary_min, salary_max, additional_info,
+       stages_json, published_at, employer_id, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     IDS.jobMobile,
     "Desenvolvedor mobile (React Native)",
     "Time de produto construindo o LinkUP. Você vai implementar telas, integrar com dados locais e cuidar da experiência no celular.",
-    "React Native ou Expo, TypeScript, e interesse em feedback de currículo e processos seletivos.",
+    "React Native ou Expo; TypeScript; interesse em feedback de currículo e processos seletivos",
+    "PUBLISHED",
+    "MID",
+    "CLT",
+    1,
+    0,
+    "HYBRID",
+    "São Paulo",
+    "SP",
+    "Implementar telas, integrar com dados locais e cuidar da experiência no celular.",
+    JSON.stringify([
+      "React Native ou Expo",
+      "TypeScript",
+      "interesse em feedback de currículo e processos seletivos",
+    ]),
+    JSON.stringify(["experiência com Expo Router"]),
+    JSON.stringify(["Vale-refeição", "Plano de saúde", "Horário flexível"]),
+    8000,
+    12000,
+    "Modelo híbrido com 2 dias no escritório.",
+    defaultStages,
+    T1,
     IDS.employer,
     T1,
     T1,
   );
 
   await db.runAsync(
-    `INSERT OR IGNORE INTO jobs (id, title, description, looking_for, employer_id, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT OR IGNORE INTO jobs (
+       id, title, description, looking_for, status, seniority, contract_type, openings,
+       pcd_exclusive, work_model, city, state, responsibilities, requirements_json,
+       nice_to_have_json, benefits_json, salary_min, salary_max, additional_info,
+       stages_json, published_at, employer_id, created_at, updated_at
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     IDS.jobData,
     "Analista de dados",
     "Apoiar decisões de produto com métricas de candidatura, triagem e conversão por etapa do funil.",
-    "SQL, visualização e comunicação clara com recrutamento e contratantes.",
+    "SQL; visualização; comunicação clara com recrutamento e contratantes",
+    "PUBLISHED",
+    "JUNIOR",
+    "CLT",
+    1,
+    0,
+    "REMOTE",
+    null,
+    null,
+    "Montar painéis, acompanhar conversão do funil e apoiar o time de produto.",
+    JSON.stringify(["SQL", "visualização", "comunicação clara com recrutamento e contratantes"]),
+    JSON.stringify(["Python", "Notion"]),
+    JSON.stringify(["Home office", "Vale-alimentação"]),
+    5000,
+    7500,
+    "",
+    defaultStages,
+    T1,
     IDS.employer,
     T1,
     T1,
@@ -567,6 +621,263 @@ export async function seedDemo(db: SeedDatabase): Promise<void> {
     T6,
   );
 
+  await seedDemoProfiles(db);
   await seedDemoInterview(db);
   await seedDemoEvents(db);
+}
+
+async function seedDemoProfiles(db: SeedDatabase): Promise<void> {
+  type ProfileSeed = {
+    userId: string;
+    fullName: string;
+    phone: string;
+    birthDate: string;
+    gender: string;
+    city: string;
+    state: string;
+    cep: string;
+    street: string;
+    objective: string;
+    salary: number;
+    workModel: string;
+    skills: string[];
+    education: {
+      id: string;
+      level: string;
+      course: string;
+      institution: string;
+      start: string;
+      end: string;
+    };
+    experience: {
+      id: string;
+      company: string;
+      role: string;
+      start: string;
+      end: string | null;
+      current: number;
+      description: string;
+    };
+  };
+
+  const profiles: ProfileSeed[] = [
+    {
+      userId: IDS.ana,
+      fullName: "Ana Costa",
+      phone: "11999887766",
+      birthDate: "1996-04-12",
+      gender: "Mulher",
+      city: "São Paulo",
+      state: "SP",
+      cep: "01310100",
+      street: "Av. Paulista, 1000",
+      objective: "Desenvolver produtos mobile com React Native e foco em experiência do candidato.",
+      salary: 9000,
+      workModel: "HYBRID",
+      skills: ["React Native", "TypeScript", "Expo"],
+      education: {
+        id: "demo-edu-ana",
+        level: "UNDERGRADUATE",
+        course: "Ciência da Computação",
+        institution: "USP",
+        start: "2015-02",
+        end: "2019-12",
+      },
+      experience: {
+        id: "demo-exp-ana",
+        company: "Studio Mobile",
+        role: "Desenvolvedora mobile",
+        start: "2021-03",
+        end: null,
+        current: 1,
+        description: "Apps em React Native e integração com APIs.",
+      },
+    },
+    {
+      userId: IDS.bruno,
+      fullName: "Bruno Lima",
+      phone: "21988776655",
+      birthDate: "1999-08-03",
+      gender: "Homem",
+      city: "Rio de Janeiro",
+      state: "RJ",
+      cep: "22041080",
+      street: "Rua das Laranjeiras, 50",
+      objective: "Crescer como desenvolvedor júnior em times de produto.",
+      salary: 4500,
+      workModel: "ONSITE",
+      skills: ["JavaScript", "React"],
+      education: {
+        id: "demo-edu-bruno",
+        level: "UNDERGRADUATE",
+        course: "Sistemas de Informação",
+        institution: "UFRJ",
+        start: "2018-03",
+        end: "2022-12",
+      },
+      experience: {
+        id: "demo-exp-bruno",
+        company: "Agência Web",
+        role: "Desenvolvedor júnior",
+        start: "2023-01",
+        end: null,
+        current: 1,
+        description: "Landing pages e manutenção de apps React.",
+      },
+    },
+    {
+      userId: IDS.carla,
+      fullName: "Carla Nunes",
+      phone: "31977665544",
+      birthDate: "1994-11-21",
+      gender: "Mulher",
+      city: "Belo Horizonte",
+      state: "MG",
+      cep: "30130110",
+      street: "Rua da Bahia, 200",
+      objective: "Atuar com análise de dados e métricas de funil seletivo.",
+      salary: 7000,
+      workModel: "REMOTE",
+      skills: ["SQL", "Python", "Power BI"],
+      education: {
+        id: "demo-edu-carla",
+        level: "UNDERGRADUATE",
+        course: "Estatística",
+        institution: "UFMG",
+        start: "2013-02",
+        end: "2017-12",
+      },
+      experience: {
+        id: "demo-exp-carla",
+        company: "Consultoria Analytics",
+        role: "Analista de dados",
+        start: "2019-06",
+        end: "2024-01",
+        current: 0,
+        description: "Dashboards e indicadores de recrutamento.",
+      },
+    },
+  ];
+
+  for (const profile of profiles) {
+    await db.runAsync(
+      `INSERT OR IGNORE INTO candidate_profiles (
+        user_id, full_name, phone, birth_date, gender, linkedin_url,
+        disability_status, disability_detail, disability_cid,
+        laudo_file_name, laudo_file_uri, laudo_file_size_bytes,
+        lives_in_brazil, cep, street, state, city,
+        objective, salary_expectation, work_model, availability, skills_json,
+        diversity_pronoun, diversity_gender_identity, diversity_orientation,
+        diversity_race, diversity_origin_city, diversity_share_consent, updated_at
+      ) VALUES (?, ?, ?, ?, ?, NULL, 'NO', NULL, NULL, NULL, NULL, NULL, 1, ?, ?, ?, ?, ?, ?, ?, 'Imediato', ?, NULL, NULL, NULL, NULL, NULL, 0, ?)`,
+      profile.userId,
+      profile.fullName,
+      profile.phone,
+      profile.birthDate,
+      profile.gender,
+      profile.cep,
+      profile.street,
+      profile.state,
+      profile.city,
+      profile.objective,
+      profile.salary,
+      profile.workModel,
+      JSON.stringify(profile.skills),
+      T0,
+    );
+
+    await db.runAsync(
+      `INSERT OR IGNORE INTO candidate_educations
+        (id, user_id, level, course, institution, start_month, end_month, ongoing, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)`,
+      profile.education.id,
+      profile.userId,
+      profile.education.level,
+      profile.education.course,
+      profile.education.institution,
+      profile.education.start,
+      profile.education.end,
+    );
+
+    await db.runAsync(
+      `INSERT OR IGNORE INTO candidate_experiences
+        (id, user_id, company, role, start_month, end_month, current, description, sort_order)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      profile.experience.id,
+      profile.userId,
+      profile.experience.company,
+      profile.experience.role,
+      profile.experience.start,
+      profile.experience.end,
+      profile.experience.current,
+      profile.experience.description,
+    );
+  }
+
+  await db.runAsync(
+    `INSERT OR IGNORE INTO employer_profiles (
+      user_id, trade_name, legal_name, cnpj, industry, company_size, founded_year,
+      website, linkedin_url, about, lives_in_brazil, cep, street, state, city,
+      contact_name, contact_role, phone, commercial_email,
+      hiring_areas_json, seniorities_json, contract_types_json, work_models_json,
+      benefits_json, culture_values_json, inclusion_note, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    IDS.employer,
+    "LinkUP Demo",
+    "LinkUP Tecnologia Ltda",
+    "11222333000181",
+    "TECHNOLOGY",
+    "11_50",
+    2019,
+    "https://linkup.demo",
+    "https://linkedin.com/company/linkup-demo",
+    "Empresa demo que publica vagas mobile e de dados para o fluxo de triagem do LinkUP.",
+    "01310100",
+    "Av. Paulista, 1000",
+    "SP",
+    "São Paulo",
+    "Marina Souza",
+    "Head de People",
+    "11987654321",
+    "talentos@linkup.demo",
+    JSON.stringify(["TECHNOLOGY", "DATA", "PRODUCT"]),
+    JSON.stringify(["JUNIOR", "MID", "SENIOR"]),
+    JSON.stringify(["CLT", "PJ"]),
+    JSON.stringify(["HYBRID", "REMOTE"]),
+    JSON.stringify(["Vale-refeição", "Plano de saúde", "Home office"]),
+    JSON.stringify(["Transparência", "Aprendizado contínuo"]),
+    "Abrimos vagas PcD e adaptamos o processo seletivo quando necessário.",
+    T0,
+  );
+
+  await db.runAsync(
+    `INSERT OR IGNORE INTO recruiter_profiles (
+      user_id, full_name, headline, phone, linkedin_url, state, city, bio,
+      work_mode, consultancy_name, consultancy_website, years_experience, availability,
+      focus_areas_json, seniorities_json, contract_types_json, languages_json, certificates_json,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    IDS.recruiter,
+    "Paula Mendes",
+    "Recrutadora técnica | Mobile e dados",
+    "11976543210",
+    "https://linkedin.com/in/paula-mendes-demo",
+    "SP",
+    "São Paulo",
+    "Triagem de candidaturas com foco em evidência no currículo e alinhamento ao que a vaga pede.",
+    "CONSULTANCY",
+    "Mendes Talent",
+    "https://mendes.talent.demo",
+    8,
+    "Horário comercial (BRT)",
+    JSON.stringify(["TECHNOLOGY", "DATA", "PRODUCT"]),
+    JSON.stringify(["JUNIOR", "MID", "SENIOR"]),
+    JSON.stringify(["CLT", "PJ"]),
+    JSON.stringify([
+      { id: "demo-lang-recruiter-en", language: "Inglês", level: "ADVANCED" },
+      { id: "demo-lang-recruiter-es", language: "Espanhol", level: "INTERMEDIATE" },
+    ]),
+    JSON.stringify([{ id: "demo-cert-recruiter", title: "LinkedIn Recruiter" }]),
+    T0,
+  );
 }

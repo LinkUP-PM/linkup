@@ -17,7 +17,10 @@ type InterviewWithApp = {
     candidateId: string;
     status: string;
     job: { title: string; employerId: string };
-    candidate: { email: string };
+    candidate: {
+      email: string;
+      candidateProfile: { fullName: string } | null;
+    };
   };
 };
 
@@ -37,6 +40,8 @@ function toInterview(
   };
   if (includeEmail) {
     interview.candidateEmail = row.application.candidate.email;
+    const name = row.application.candidate.candidateProfile?.fullName?.trim();
+    if (name) interview.candidateName = name;
   }
   return interview;
 }
@@ -59,14 +64,41 @@ const interviewInclude = {
   application: {
     include: {
       job: { select: { title: true, employerId: true } },
-      candidate: { select: { email: true } },
+      candidate: {
+        select: {
+          email: true,
+          candidateProfile: { select: { fullName: true } },
+        },
+      },
     },
   },
 } as const;
 
 const applicationDetailInclude = {
   job: { select: { title: true, employerId: true } },
-  candidate: { select: { email: true } },
+  candidate: {
+    select: {
+      email: true,
+      candidateProfile: {
+        select: {
+          fullName: true,
+          city: true,
+          state: true,
+          objective: true,
+          educations: {
+            orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }],
+            take: 1,
+            select: { level: true, course: true, institution: true, sortOrder: true },
+          },
+          experiences: {
+            orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }],
+            take: 1,
+            select: { company: true, role: true, sortOrder: true },
+          },
+        },
+      },
+    },
+  },
   analysis: true,
   noteEntries: { orderBy: { createdAt: "desc" as const } },
   interviews: { orderBy: { createdAt: "desc" as const } },

@@ -105,6 +105,14 @@ export default function RecruiterInboxScreen() {
               <Text style={styles.jobTitle} numberOfLines={2}>
                 {item.jobTitle}
               </Text>
+              {item.candidateProfile?.fullName ? (
+                <Text style={styles.email} numberOfLines={1}>
+                  {item.candidateProfile.fullName}
+                  {item.candidateProfile.city
+                    ? ` · ${item.candidateProfile.city}/${item.candidateProfile.state}`
+                    : ""}
+                </Text>
+              ) : null}
               {item.candidateEmail ? (
                 <Text style={styles.email} numberOfLines={1}>
                   {item.candidateEmail}

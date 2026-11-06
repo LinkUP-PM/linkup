@@ -62,6 +62,24 @@ export default function EmployerTabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="perfil"
+        options={{
+          title: "Perfil",
+          headerTitle: () => <BrandHeaderTitle title="Perfil" />,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-circle-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="cadastro"
+        options={{
+          href: null,
+          title: "Cadastro",
+          headerTitle: () => <BrandHeaderTitle title="Cadastro da empresa" />,
+        }}
+      />
+      <Tabs.Screen
         name="indicados/[id]"
         options={{
           href: null,

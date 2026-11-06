@@ -30,6 +30,78 @@ enum ApplicationStatus {
   REJECTED
 }
 
+enum DisabilityStatus {
+  NO
+  YES
+  PREFER_NOT_SAY
+}
+
+enum WorkModel {
+  ONSITE
+  HYBRID
+  REMOTE
+  FLEXIBLE
+}
+
+enum JobStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum JobSeniority {
+  JUNIOR
+  MID
+  SENIOR
+  SPECIALIST
+}
+
+enum JobContractType {
+  CLT
+  PJ
+  INTERNSHIP
+  TEMPORARY
+  APPRENTICE
+  FREELANCER
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL
+  TECHNICAL
+  UNDERGRADUATE
+  POSTGRADUATE
+  MASTERS
+  DOCTORATE
+  OTHER
+}
+
+enum LanguageLevel {
+  BASIC
+  INTERMEDIATE
+  ADVANCED
+  FLUENT
+}
+
+enum HiringArea {
+  TECHNOLOGY
+  PRODUCT
+  DATA
+  DESIGN
+  SALES
+  OPERATIONS
+  FINANCE
+  HEALTH
+  EDUCATION
+  INDUSTRY
+  SERVICES
+  OTHER
+}
+
+enum RecruiterWorkMode {
+  CONSULTANCY
+  INDEPENDENT
+  IN_HOUSE
+}
+
 model User {
   id           String        @id @default(cuid())
   email        String        @unique
@@ -39,8 +111,155 @@ model User {
   jobs         Job[]         @relation("EmployerJobs")
   applications Application[] @relation("CandidateApplications")
   sessions     Session[]
+  candidateProfile CandidateProfile?
+  employerProfile  EmployerProfile?
+  recruiterProfile RecruiterProfile?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+}
+
+model CandidateProfile {
+  userId                   String           @id
+  user                     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName                 String           @default("")
+  phone                    String           @default("")
+  birthDate                String           @default("")
+  gender                   String           @default("")
+  linkedinUrl              String?
+  disabilityStatus         DisabilityStatus @default(NO)
+  disabilityDetail         String?
+  disabilityCid            String?
+  laudoFileName            String?
+  laudoFileSizeBytes       Int?
+  laudoBytes               Bytes?
+  livesInBrazil            Boolean          @default(true)
+  cep                      String           @default("")
+  street                   String           @default("")
+  state                    String           @default("")
+  city                     String           @default("")
+  objective                String?
+  salaryExpectation        Int?
+  workModel                WorkModel?
+  availability             String?
+  skillsJson               Json             @default("[]")
+  diversityPronoun         String?
+  diversityGenderIdentity  String?
+  diversityOrientation     String?
+  diversityRace            String?
+  diversityOriginCity      String?
+  diversityShareConsent    Boolean          @default(false)
+  educations               CandidateEducation[]
+  experiences              CandidateExperience[]
+  languages                CandidateLanguage[]
+  certificates             CandidateCertificate[]
+  updatedAt                DateTime         @updatedAt
+}
+
+model CandidateEducation {
+  id           String         @id @default(cuid())
+  userId       String
+  profile      CandidateProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  level        EducationLevel
+  course       String
+  institution  String
+  startMonth   String
+  endMonth     String?
+  ongoing      Boolean        @default(false)
+  sortOrder    Int            @default(0)
+
+  @@index([userId, sortOrder])
+}
+
+model CandidateExperience {
+  id          String          @id @default(cuid())
+  userId      String
+  profile     CandidateProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  company     String
+  role        String
+  startMonth  String
+  endMonth    String?
+  current     Boolean         @default(false)
+  description String          @default("")
+  sortOrder   Int             @default(0)
+
+  @@index([userId, sortOrder])
+}
+
+model CandidateLanguage {
+  id        String        @id @default(cuid())
+  userId    String
+  profile   CandidateProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  language  String
+  level     LanguageLevel
+  sortOrder Int           @default(0)
+
+  @@index([userId, sortOrder])
+}
+
+model CandidateCertificate {
+  id          String          @id @default(cuid())
+  userId      String
+  profile     CandidateProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  title       String
+  description String          @default("")
+  sortOrder   Int             @default(0)
+
+  @@index([userId, sortOrder])
+}
+
+model EmployerProfile {
+  userId            String       @id
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tradeName         String       @default("")
+  legalName         String       @default("")
+  cnpj              String?
+  industry          HiringArea?
+  /** Valores alinhados a CompanySize do shared: 1_10, 11_50, 51_200, 201_1000, 1000_PLUS. */
+  companySize       String?
+  foundedYear       Int?
+  website           String?
+  linkedinUrl       String?
+  about             String?
+  livesInBrazil     Boolean      @default(true)
+  cep               String       @default("")
+  street            String       @default("")
+  state             String       @default("")
+  city              String       @default("")
+  contactName       String       @default("")
+  contactRole       String       @default("")
+  phone             String       @default("")
+  commercialEmail   String?
+  hiringAreasJson   Json         @default("[]")
+  senioritiesJson   Json         @default("[]")
+  contractTypesJson Json         @default("[]")
+  workModelsJson    Json         @default("[]")
+  benefitsJson      Json         @default("[]")
+  cultureValuesJson Json         @default("[]")
+  inclusionNote     String?
+  updatedAt         DateTime     @updatedAt
+}
+
+model RecruiterProfile {
+  userId               String             @id
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName             String             @default("")
+  headline             String             @default("")
+  phone                String             @default("")
+  linkedinUrl          String?
+  state                String             @default("")
+  city                 String             @default("")
+  bio                  String?
+  workMode             RecruiterWorkMode?
+  consultancyName      String?
+  consultancyWebsite   String?
+  yearsExperience      Int?
+  availability         String?
+  focusAreasJson       Json               @default("[]")
+  senioritiesJson      Json               @default("[]")
+  contractTypesJson    Json               @default("[]")
+  languagesJson        Json               @default("[]")
+  certificatesJson     Json               @default("[]")
+  updatedAt            DateTime           @updatedAt
 }
 
 model Session {
@@ -74,18 +293,36 @@ model Analysis {
 }
 
 model Job {
-  id           String        @id @default(cuid())
-  title        String
-  description  String
-  lookingFor   String
-  employerId   String
-  employer     User          @relation("EmployerJobs", fields: [employerId], references: [id], onDelete: Cascade)
-  applications Application[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id               String           @id @default(cuid())
+  title            String
+  description      String           @default("")
+  lookingFor       String           @default("")
+  status           JobStatus        @default(DRAFT)
+  seniority        JobSeniority?
+  contractType     JobContractType?
+  openings         Int              @default(1)
+  pcdExclusive     Boolean          @default(false)
+  workModel        WorkModel?
+  city             String?
+  state            String?
+  responsibilities String           @default("")
+  requirementsJson Json             @default("[]")
+  niceToHaveJson   Json             @default("[]")
+  benefitsJson     Json             @default("[]")
+  salaryMin        Int?
+  salaryMax        Int?
+  additionalInfo   String           @default("")
+  stagesJson       Json             @default("[]")
+  publishedAt      DateTime?
+  employerId       String
+  employer         User             @relation("EmployerJobs", fields: [employerId], references: [id], onDelete: Cascade)
+  applications     Application[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@index([employerId, createdAt])
   @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 enum RecruiterNoteAction {
